@@ -16,9 +16,8 @@ class GameScene extends Phaser.Scene {
     preload() {
         console.log('📦 Preloading assets...');
         
-        // Create simple pixel data for sprites instead of base64
-        this.load.image('player', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==');
-        this.load.image('coin', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==');
+        // Create graphics instead of loading data URIs
+        console.log('🎨 Creating graphics assets...');
         
         // Add loading progress
         this.load.on('progress', (value) => {
@@ -34,6 +33,9 @@ class GameScene extends Phaser.Scene {
         console.log('🚀 Creating game scene...');
         
         try {
+            // Create graphics for sprites
+            this.createGraphics();
+            
             // Set world bounds to be larger than screen
             this.physics.world.setBounds(0, 0, 1200, 900);
 
@@ -69,6 +71,26 @@ class GameScene extends Phaser.Scene {
         }
     }
 
+    createGraphics() {
+        console.log('🎨 Creating sprite graphics...');
+        
+        // Create player sprite (green circle)
+        const playerGraphics = this.add.graphics();
+        playerGraphics.fillStyle(0x00FF88);
+        playerGraphics.fillCircle(15, 15, 15);
+        playerGraphics.generateTexture('player', 30, 30);
+        playerGraphics.destroy();
+        
+        // Create coin sprite (gold circle)
+        const coinGraphics = this.add.graphics();
+        coinGraphics.fillStyle(0xFFD700);
+        coinGraphics.fillCircle(10, 10, 10);
+        coinGraphics.generateTexture('coin', 20, 20);
+        coinGraphics.destroy();
+        
+        console.log('✅ Graphics created successfully');
+    }
+
     createBackground() {
         try {
             // Create a subtle grid pattern
@@ -96,8 +118,6 @@ class GameScene extends Phaser.Scene {
         console.log('👤 Creating player...');
         try {
             this.player = this.physics.add.sprite(600, 450, 'player');
-            this.player.setDisplaySize(30, 30);
-            this.player.setTint(0x00FF88); // Nice green color
             this.player.setCollideWorldBounds(true);
 
             // Camera follows player
@@ -130,8 +150,6 @@ class GameScene extends Phaser.Scene {
             const id = 'item_' + Date.now() + '_' + Math.random();
             
             const item = this.physics.add.sprite(x, y, 'coin');
-            item.setDisplaySize(20, 20);
-            item.setTint(0xFFD700); // Gold color
             item.itemId = id;
             
             // Add some sparkle effect
@@ -188,19 +206,24 @@ class GameScene extends Phaser.Scene {
 
     createCollectionEffect(x, y) {
         try {
-            // Create particle effect
-            const particles = this.add.particles(x, y, 'coin', {
-                speed: { min: 50, max: 100 },
-                scale: { start: 0.3, end: 0 },
-                lifespan: 300,
-                quantity: 5,
-                tint: 0xFFD700
-            });
+            // Create simple particle effect with graphics
+            for (let i = 0; i < 5; i++) {
+                const particle = this.add.graphics();
+                particle.fillStyle(0xFFD700);
+                particle.fillCircle(0, 0, 3);
+                particle.x = x;
+                particle.y = y;
 
-            // Remove particles after animation
-            this.time.delayedCall(500, () => {
-                particles.destroy();
-            });
+                this.tweens.add({
+                    targets: particle,
+                    x: x + Phaser.Math.Between(-50, 50),
+                    y: y + Phaser.Math.Between(-50, 50),
+                    alpha: 0,
+                    duration: 300,
+                    ease: 'Power2',
+                    onComplete: () => particle.destroy()
+                });
+            }
 
             // Show score popup
             const scoreText = this.add.text(x, y - 30, '+10', {
