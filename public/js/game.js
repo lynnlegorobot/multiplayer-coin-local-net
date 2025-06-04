@@ -137,12 +137,21 @@ class GameScene extends Phaser.Scene {
         this.socket.on('itemCollected', (data) => {
             console.log('🪙 Item collected:', data.itemId, 'by player:', data.playerId);
             
+            const isMyCollection = (data.playerId === this.socket.id);
+            
             // Remove the collected item if it exists
             if (this.items[data.itemId]) {
                 console.log('🗑️ Removing item from client:', data.itemId);
                 
-                // Add particle effect before destroying (only if we have the item)
-                this.createCoinEffect(this.items[data.itemId].x, this.items[data.itemId].y);
+                // Only show effects for MY collections, not opponents'
+                if (isMyCollection) {
+                    // Add particle effect and screen shake for my collection
+                    this.createCoinEffect(this.items[data.itemId].x, this.items[data.itemId].y);
+                } else {
+                    // For opponent collections, just show a subtle visual indicator
+                    this.createOpponentCollectionEffect(this.items[data.itemId].x, this.items[data.itemId].y);
+                }
+                
                 this.items[data.itemId].destroy();
                 delete this.items[data.itemId];
             } else {
@@ -150,7 +159,11 @@ class GameScene extends Phaser.Scene {
                 
                 // Show effect at the collection location if provided
                 if (data.collectedAt) {
-                    this.createCoinEffect(data.collectedAt.x, data.collectedAt.y);
+                    if (isMyCollection) {
+                        this.createCoinEffect(data.collectedAt.x, data.collectedAt.y);
+                    } else {
+                        this.createOpponentCollectionEffect(data.collectedAt.x, data.collectedAt.y);
+                    }
                 }
             }
             
@@ -317,10 +330,10 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    // Enhanced visual feedback for coin collection (same as single-player)
+    // Enhanced visual feedback for MY coin collection
     createCoinEffect(x, y) {
         try {
-            // Camera shake effect
+            // Camera shake effect (only for my collections)
             this.cameras.main.shake(100, 0.01);
             
             // Create particle effect with graphics
@@ -359,6 +372,48 @@ class GameScene extends Phaser.Scene {
             });
         } catch (error) {
             console.error('❌ Error creating collection effect:', error);
+        }
+    }
+
+    // Subtle effect for opponent collections (no screen shake, smaller particles)
+    createOpponentCollectionEffect(x, y) {
+        try {
+            // Create smaller, subtler particle effect
+            for (let i = 0; i < 3; i++) {
+                const particle = this.add.graphics();
+                particle.fillStyle(0xFFD700);
+                particle.fillCircle(0, 0, 2); // Smaller particles
+                particle.x = x;
+                particle.y = y;
+                particle.setAlpha(0.6); // Less opacity
+
+                this.tweens.add({
+                    targets: particle,
+                    x: x + Phaser.Math.Between(-30, 30), // Smaller spread
+                    y: y + Phaser.Math.Between(-30, 30),
+                    alpha: 0,
+                    duration: 200, // Faster duration
+                    ease: 'Power1',
+                    onComplete: () => particle.destroy()
+                });
+            }
+
+            // Show opponent indicator (no score since it's not yours)
+            const opponentText = this.add.text(x, y - 20, '✨', {
+                fontSize: '16px',
+                color: '#FFF'
+            }).setOrigin(0.5);
+
+            this.tweens.add({
+                targets: opponentText,
+                y: y - 40,
+                alpha: 0,
+                duration: 500,
+                ease: 'Power1',
+                onComplete: () => opponentText.destroy()
+            });
+        } catch (error) {
+            console.error('❌ Error creating opponent collection effect:', error);
         }
     }
 

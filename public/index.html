@@ -257,6 +257,9 @@
         <div id="gameUI">
             <div>🪙 Score: <span id="score">0</span></div>
             <div>👤 Players: <span id="playerCount">1</span></div>
+            <div id="playerName" style="font-size: 14px; color: #FFD700; margin-top: 5px;">
+                🎮 <span id="playerNameText">Loading...</span>
+            </div>
         </div>
         
         <button id="shareButton" onclick="showQR()">📱 Share QR</button>
@@ -279,7 +282,13 @@
             <p style="font-size: 12px; color: #666; margin: 10px 0;">
                 <span id="gameUrl"></span>
             </p>
-            <button id="closeQR" onclick="hideQR()">Close</button>
+            <button id="closeQR" onclick="hideQR()" 
+                    ontouchend="hideQR()" 
+                    style="padding: 12px 24px; background: #ff4444; color: white; border: none; 
+                           border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold;
+                           min-height: 48px; min-width: 100px; margin-top: 15px;">
+                ✕ Close
+            </button>
         </div>
     </div>
 
@@ -448,12 +457,23 @@
         
         function hideQR() {
             console.log('❌ Hide QR called');
-            document.getElementById('qrModal').style.display = 'none';
+            const modal = document.getElementById('qrModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
         }
         
         // Close QR modal when clicking outside
         document.getElementById('qrModal').addEventListener('click', function(e) {
             if (e.target === this) {
+                hideQR();
+            }
+        });
+        
+        // Add touch event for mobile
+        document.getElementById('qrModal').addEventListener('touchend', function(e) {
+            if (e.target === this) {
+                e.preventDefault();
                 hideQR();
             }
         });

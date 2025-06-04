@@ -8,6 +8,9 @@ class LeaderboardManager {
         this.lastScores = [];
         this.playerName = this.getPlayerName();
         this.init();
+        
+        // Display username in UI immediately
+        this.updatePlayerNameDisplay();
     }
 
     async init() {
@@ -62,6 +65,20 @@ class LeaderboardManager {
         }
     }
 
+    updatePlayerNameDisplay() {
+        const playerNameElement = document.getElementById('playerNameText');
+        if (playerNameElement) {
+            playerNameElement.textContent = this.playerName;
+            playerNameElement.style.cursor = 'pointer';
+            playerNameElement.title = 'Click to change your name';
+            
+            // Add click handler to change name
+            playerNameElement.onclick = () => {
+                this.showNameCustomization(this.playerName);
+            };
+        }
+    }
+
     getPlayerName() {
         let name = localStorage.getItem('playerName');
         if (!name) {
@@ -73,10 +90,10 @@ class LeaderboardManager {
                    Math.floor(Math.random() * 100);
             localStorage.setItem('playerName', name);
             
-            // Show name to user and allow customization
+            // Show name to user and allow customization immediately
             setTimeout(() => {
                 this.showNameCustomization(name);
-            }, 2000);
+            }, 1000); // Reduced delay for better UX
         }
         return name;
     }
@@ -88,36 +105,51 @@ class LeaderboardManager {
         modal.id = 'nameModal';
         modal.style.cssText = `
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); display: flex; align-items: center;
+            background: rgba(0,0,0,0.9); display: flex; align-items: center;
             justify-content: center; z-index: 2000; padding: 20px; box-sizing: border-box;
         `;
         
         modal.innerHTML = `
-            <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 350px; width: 100%;">
-                <h3 style="color: #333; margin-bottom: 20px;">🎮 Welcome to the game!</h3>
-                <p style="color: #666; margin-bottom: 20px;">Your player name is:</p>
+            <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 350px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <h3 style="color: #333; margin-bottom: 20px;">🎮 Player Identity</h3>
+                <p style="color: #666; margin-bottom: 20px;">Your multiplayer name:</p>
                 <input type="text" id="playerNameInput" value="${currentName}" 
                        style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; 
-                              font-size: 16px; text-align: center; margin-bottom: 20px;">
-                <div style="display: flex; gap: 10px; justify-content: center;">
+                              font-size: 16px; text-align: center; margin-bottom: 20px; font-weight: bold;">
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                     <button onclick="window.leaderboardManager.saveName()" 
                             style="padding: 12px 20px; background: #4CAF50; color: white; border: none; 
-                                   border-radius: 8px; cursor: pointer; font-size: 16px;">
-                        ✅ Keep This Name
+                                   border-radius: 8px; cursor: pointer; font-size: 16px; min-height: 48px;">
+                        ✅ Save Name
                     </button>
                     <button onclick="window.leaderboardManager.generateNewName()" 
                             style="padding: 12px 20px; background: #2196F3; color: white; border: none; 
-                                   border-radius: 8px; cursor: pointer; font-size: 16px;">
-                        🎲 New Random
+                                   border-radius: 8px; cursor: pointer; font-size: 16px; min-height: 48px;">
+                        🎲 Random
                     </button>
                 </div>
                 <p style="font-size: 12px; color: #999; margin-top: 15px;">
-                    You can change this anytime in the leaderboard
+                    This name will appear on the global leaderboard.<br>
+                    Click your name in the top-left to change it anytime.
                 </p>
+                <button onclick="window.leaderboardManager.hideNameModal()" 
+                        style="position: absolute; top: 10px; right: 10px; background: #ff4444; color: white; 
+                               border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 16px;">
+                    ✕
+                </button>
             </div>
         `;
         
         document.body.appendChild(modal);
+        
+        // Focus the input for easy typing
+        setTimeout(() => {
+            const input = document.getElementById('playerNameInput');
+            if (input) {
+                input.focus();
+                input.select();
+            }
+        }, 100);
     }
 
     saveName() {
@@ -127,6 +159,7 @@ class LeaderboardManager {
             if (newName && newName.length >= 2) {
                 this.playerName = newName;
                 localStorage.setItem('playerName', newName);
+                this.updatePlayerNameDisplay(); // Update UI immediately
                 console.log('✅ Player name saved:', newName);
             }
         }
