@@ -1,3 +1,5 @@
+console.log('🎮 Game script loading...');
+
 class GameScene extends Phaser.Scene {
     constructor() {
         super({ key: 'GameScene' });
@@ -8,15 +10,19 @@ class GameScene extends Phaser.Scene {
         this.score = 0;
         this.itemCount = 0;
         this.maxItems = 15;
+        console.log('🎯 GameScene constructor called');
     }
 
     preload() {
+        console.log('📦 Preloading assets...');
         // Create simple colored rectangles for sprites
         this.load.image('player', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
         this.load.image('coin', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
     }
 
     create() {
+        console.log('🚀 Creating game scene...');
+        
         // Set world bounds to be larger than screen
         this.physics.world.setBounds(0, 0, 1200, 900);
 
@@ -37,6 +43,9 @@ class GameScene extends Phaser.Scene {
 
         // Add background pattern
         this.createBackground();
+        
+        console.log('✅ Game scene created successfully!');
+        console.log(`📊 Created ${Object.keys(this.items).length} items`);
     }
 
     createBackground() {
@@ -58,6 +67,7 @@ class GameScene extends Phaser.Scene {
     }
 
     createPlayer() {
+        console.log('👤 Creating player...');
         this.player = this.physics.add.sprite(600, 450, 'player');
         this.player.setDisplaySize(30, 30);
         this.player.setTint(0x00FF88); // Nice green color
@@ -66,9 +76,12 @@ class GameScene extends Phaser.Scene {
         // Camera follows player
         this.cameras.main.startFollow(this.player, true, 0.05, 0.05);
         this.cameras.main.setZoom(1.2);
+        
+        console.log('✅ Player created at position:', this.player.x, this.player.y);
     }
 
     generateItems() {
+        console.log(`🪙 Generating ${this.maxItems} items...`);
         for (let i = 0; i < this.maxItems; i++) {
             this.createItem();
         }
@@ -104,6 +117,8 @@ class GameScene extends Phaser.Scene {
     collectItem(itemId) {
         const item = this.items[itemId];
         if (!item) return;
+
+        console.log('🪙 Collected item! Score:', this.score + 10);
 
         // Create collection effect
         this.createCollectionEffect(item.x, item.y);
@@ -160,13 +175,18 @@ class GameScene extends Phaser.Scene {
     setupInput() {
         this.cursors = this.input.keyboard.createCursorKeys();
         this.wasd = this.input.keyboard.addKeys('W,S,A,D');
+        console.log('⌨️ Keyboard input setup complete');
     }
 
     setupMobileControls() {
+        console.log('📱 Setting up mobile controls...');
         const joystick = document.getElementById('joystick');
         const joystickKnob = document.getElementById('joystick-knob');
         
-        if (!joystick || !joystickKnob) return;
+        if (!joystick || !joystickKnob) {
+            console.warn('⚠️ Joystick elements not found!');
+            return;
+        }
         
         let isDragging = false;
         const joystickCenter = { x: 60, y: 60 };
@@ -176,6 +196,7 @@ class GameScene extends Phaser.Scene {
             e.preventDefault();
             isDragging = true;
             joystick.style.opacity = '0.8';
+            console.log('🎮 Joystick touch started');
         };
 
         const handleMove = (e) => {
@@ -224,6 +245,8 @@ class GameScene extends Phaser.Scene {
         joystick.addEventListener('mousedown', handleStart);
         document.addEventListener('mousemove', handleMove);
         document.addEventListener('mouseup', handleEnd);
+        
+        console.log('✅ Mobile controls setup complete');
     }
 
     update() {
@@ -263,12 +286,16 @@ class GameScene extends Phaser.Scene {
     }
 
     updateUI() {
-        document.getElementById('score').textContent = this.score;
-        document.getElementById('playerCount').textContent = '1 (Offline Mode)';
+        const scoreElement = document.getElementById('score');
+        const playerCountElement = document.getElementById('playerCount');
+        
+        if (scoreElement) scoreElement.textContent = this.score;
+        if (playerCountElement) playerCountElement.textContent = '1 (Offline Mode)';
     }
 }
 
 // Game configuration
+console.log('⚙️ Setting up game configuration...');
 const config = {
     type: Phaser.AUTO,
     width: window.innerWidth,
@@ -290,9 +317,23 @@ const config = {
 };
 
 // Initialize the game
-const game = new Phaser.Game(config);
+console.log('🎮 Initializing Phaser game...');
+let game;
+
+try {
+    game = new Phaser.Game(config);
+    console.log('✅ Game initialized successfully!');
+} catch (error) {
+    console.error('❌ Failed to initialize game:', error);
+}
 
 // Handle window resize
 window.addEventListener('resize', () => {
-    game.scale.resize(window.innerWidth, window.innerHeight);
-}); 
+    if (game) {
+        game.scale.resize(window.innerWidth, window.innerHeight);
+    }
+});
+
+// Debug info
+console.log('🎯 Game setup complete! Check console for any errors.');
+console.log('📱 To test: Use WASD keys or touch the joystick to move around and collect coins!'); 
