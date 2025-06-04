@@ -257,15 +257,45 @@
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
     
     <script>
-        // Simple QR Code functionality using API
+        // Smart QR Code functionality - detects multiplayer vs single-player mode
         function showQR() {
             console.log('📱 Show QR button clicked');
             
             const currentUrl = window.location.href;
-            const gameUrl = currentUrl.includes('vercel.app') ? currentUrl : 'https://muliplayer-phone.vercel.app/';
+            let gameUrl = currentUrl;
+            let gameMode = 'Unknown';
             
-            console.log('🌐 Generating QR for URL:', gameUrl);
-            document.getElementById('gameUrl').textContent = gameUrl;
+            // Detect game mode based on environment
+            if (currentUrl.includes('railway.app')) {
+                // Railway deployment - multiplayer mode
+                gameUrl = 'https://muliplayer-phone-production.up.railway.app/';
+                gameMode = 'Multiplayer (Railway)';
+                console.log('🚂 Detected Railway multiplayer environment');
+            } else if (currentUrl.includes('vercel.app')) {
+                // Vercel deployment - single-player mode
+                gameUrl = 'https://muliplayer-phone.vercel.app/';
+                gameMode = 'Single-player (Vercel)';
+                console.log('▲ Detected Vercel single-player environment');
+            } else if (window.io && typeof io === 'function') {
+                // Local development with Socket.io - multiplayer mode
+                gameUrl = currentUrl;
+                gameMode = 'Multiplayer (Local)';
+                console.log('🏠 Detected local multiplayer environment');
+            } else {
+                // Fallback - assume single-player
+                gameUrl = currentUrl;
+                gameMode = 'Single-player (Local)';
+                console.log('💻 Detected local single-player environment');
+            }
+            
+            console.log(`🌐 Game mode: ${gameMode}`);
+            console.log(`🔗 QR URL: ${gameUrl}`);
+            
+            // Update the display with mode information
+            document.getElementById('gameUrl').innerHTML = `
+                <strong>${gameMode}</strong><br>
+                <span style="font-size: 10px;">${gameUrl}</span>
+            `;
             
             // Clear previous QR code
             const qrCodeDiv = document.getElementById('qrCode');
@@ -281,16 +311,22 @@
                              alt="QR Code for ${gameUrl}" 
                              style="max-width: 200px; border: 1px solid #ddd; border-radius: 8px;"
                              onload="console.log('✅ QR Code loaded successfully')"
-                             onerror="console.error('❌ QR Code image failed to load'); showFallbackShare('${gameUrl}')">
+                             onerror="console.error('❌ QR Code image failed to load'); showFallbackShare('${gameUrl}', '${gameMode}')">
                         <p style="margin-top: 10px; font-size: 12px; color: #666;">
                             Scan with your phone camera
                         </p>
+                        <div style="margin-top: 10px; padding: 8px; background: ${gameMode.includes('Multiplayer') ? '#e8f5e8' : '#f0f8ff'}; border-radius: 5px; font-size: 11px;">
+                            ${gameMode.includes('Multiplayer') 
+                                ? '🎮 <strong>Multiplayer:</strong> Play with friends in real-time!' 
+                                : '🎯 <strong>Single-player:</strong> Play solo, no internet needed!'
+                            }
+                        </div>
                     </div>
                 `;
                 
             } catch (error) {
                 console.error('❌ QR Code creation failed:', error);
-                showFallbackShare(gameUrl);
+                showFallbackShare(gameUrl, gameMode);
             }
             
             // Show the modal
@@ -299,12 +335,18 @@
             console.log('✅ QR Modal displayed');
         }
         
-        // Fallback share function if QR fails
-        function showFallbackShare(gameUrl) {
+        // Enhanced fallback share function with mode information
+        function showFallbackShare(gameUrl, gameMode = 'Game') {
             const qrCodeDiv = document.getElementById('qrCode');
             qrCodeDiv.innerHTML = `
                 <div style="padding: 20px; text-align: center; color: #333;">
-                    <h4>📱 Share This Game</h4>
+                    <h4>📱 Share This ${gameMode}</h4>
+                    <div style="margin: 10px 0; padding: 8px; background: ${gameMode.includes('Multiplayer') ? '#e8f5e8' : '#f0f8ff'}; border-radius: 5px; font-size: 12px;">
+                        ${gameMode.includes('Multiplayer') 
+                            ? '🎮 <strong>Multiplayer Mode:</strong> Friends can join and play together!' 
+                            : '🎯 <strong>Single-player Mode:</strong> Play offline, perfect for solo gaming!'
+                        }
+                    </div>
                     <p style="margin: 15px 0;">Copy this URL to your phone:</p>
                     <input type="text" 
                            value="${gameUrl}" 
@@ -315,7 +357,7 @@
                         Click the URL above to copy it
                     </p>
                     <div style="margin-top: 15px;">
-                        <button onclick="shareNative('${gameUrl}')" 
+                        <button onclick="shareNative('${gameUrl}', '${gameMode}')" 
                                 style="padding: 8px 15px; background: #4CAF50; color: white; border: none; border-radius: 5px; margin: 5px; cursor: pointer;">
                             📤 Share
                         </button>
@@ -328,14 +370,18 @@
             `;
         }
         
-        // Native share API (if available)
-        function shareNative(url) {
+        // Enhanced native share API with mode information
+        function shareNative(url, gameMode = 'Mobile Game') {
+            const shareData = {
+                title: `${gameMode} - Mobile Coin Collector`,
+                text: gameMode.includes('Multiplayer') 
+                    ? 'Join me in this fun multiplayer mobile game! We can play together in real-time!' 
+                    : 'Check out this fun mobile game! Perfect for quick solo gaming sessions!',
+                url: url
+            };
+            
             if (navigator.share) {
-                navigator.share({
-                    title: 'Mobile Coin Collector Game',
-                    text: 'Play this fun mobile game!',
-                    url: url
-                }).then(() => {
+                navigator.share(shareData).then(() => {
                     console.log('✅ Successfully shared');
                     hideQR();
                 }).catch((error) => {
