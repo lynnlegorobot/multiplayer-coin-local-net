@@ -55,7 +55,7 @@ Create a `.env` file in your project root:
 
 ```env
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaWNlbXhhZ216cmNzYW5uemtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzgzNjAsImV4cCI6MjA2NDY1NDM2MH0.rihGlIeRlh7BOSGydCsAi0onAh2Cp-e9cOVBbE_v5Go
 ```
 
 ### 5. Railway Deployment
