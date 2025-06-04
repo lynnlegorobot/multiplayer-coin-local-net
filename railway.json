@@ -1,8 +1,5 @@
 {
   "version": 2,
-  "build": {
-    "builder": "@railway/cli"
-  },
   "deploy": {
     "startCommand": "npm start",
     "restartPolicyType": "ON_FAILURE",
