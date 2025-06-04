@@ -254,28 +254,14 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js" 
-            onerror="console.error('❌ Primary QR library failed, trying fallback...'); 
-                     var script = document.createElement('script'); 
-                     script.src = 'https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js'; 
-                     script.onerror = function() { console.error('❌ Fallback QR library also failed'); }; 
-                     document.head.appendChild(script);"></script>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
     
     <script>
-        // QR Code functionality
+        // Simple QR Code functionality using API
         function showQR() {
             console.log('📱 Show QR button clicked');
             
-            // Check if QRCode library is loaded
-            if (typeof QRCode === 'undefined') {
-                console.error('❌ QRCode library not loaded');
-                alert('QR Code library failed to load. Please refresh the page.');
-                return;
-            }
-            
             const currentUrl = window.location.href;
-            // Ensure we use the correct Vercel URL
             const gameUrl = currentUrl.includes('vercel.app') ? currentUrl : 'https://muliplayer-phone.vercel.app/';
             
             console.log('🌐 Generating QR for URL:', gameUrl);
@@ -283,55 +269,116 @@
             
             // Clear previous QR code
             const qrCodeDiv = document.getElementById('qrCode');
-            qrCodeDiv.innerHTML = '';
-            
-            // Create canvas element for QR code
-            const canvas = document.createElement('canvas');
-            qrCodeDiv.appendChild(canvas);
+            qrCodeDiv.innerHTML = '<div style="padding: 20px; text-align: center;">📱 Generating QR Code...</div>';
             
             try {
-                // Generate QR code
-                QRCode.toCanvas(canvas, gameUrl, {
-                    width: 200,
-                    margin: 2,
-                    color: {
-                        dark: '#000000',
-                        light: '#ffffff'
-                    }
-                }, function (error) {
-                    if (error) {
-                        console.error('❌ QR Code generation error:', error);
-                        qrCodeDiv.innerHTML = `
-                            <div style="padding: 20px; text-align: center; color: #666;">
-                                <p>❌ Failed to generate QR code</p>
-                                <p style="font-size: 12px;">${error.message}</p>
-                                <p style="margin-top: 10px; font-size: 14px;">
-                                    Manual URL:<br>
-                                    <strong>${gameUrl}</strong>
-                                </p>
-                            </div>
-                        `;
-                    } else {
-                        console.log('✅ QR Code generated successfully');
-                    }
-                });
-            } catch (error) {
-                console.error('❌ QR Code creation failed:', error);
+                // Use QR Server API (reliable and free)
+                const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(gameUrl)}`;
+                
                 qrCodeDiv.innerHTML = `
-                    <div style="padding: 20px; text-align: center; color: #666;">
-                        <p>❌ QR Code creation failed</p>
-                        <p style="margin-top: 10px; font-size: 14px;">
-                            Copy this URL to your phone:<br>
-                            <input type="text" value="${gameUrl}" style="width: 100%; margin: 5px 0; padding: 5px;" onclick="this.select()" readonly>
+                    <div style="text-align: center;">
+                        <img src="${qrApiUrl}" 
+                             alt="QR Code for ${gameUrl}" 
+                             style="max-width: 200px; border: 1px solid #ddd; border-radius: 8px;"
+                             onload="console.log('✅ QR Code loaded successfully')"
+                             onerror="console.error('❌ QR Code image failed to load'); showFallbackShare('${gameUrl}')">
+                        <p style="margin-top: 10px; font-size: 12px; color: #666;">
+                            Scan with your phone camera
                         </p>
                     </div>
                 `;
+                
+            } catch (error) {
+                console.error('❌ QR Code creation failed:', error);
+                showFallbackShare(gameUrl);
             }
             
             // Show the modal
             const modal = document.getElementById('qrModal');
             modal.style.display = 'flex';
             console.log('✅ QR Modal displayed');
+        }
+        
+        // Fallback share function if QR fails
+        function showFallbackShare(gameUrl) {
+            const qrCodeDiv = document.getElementById('qrCode');
+            qrCodeDiv.innerHTML = `
+                <div style="padding: 20px; text-align: center; color: #333;">
+                    <h4>📱 Share This Game</h4>
+                    <p style="margin: 15px 0;">Copy this URL to your phone:</p>
+                    <input type="text" 
+                           value="${gameUrl}" 
+                           style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;" 
+                           onclick="this.select(); document.execCommand('copy'); showCopyNotification()" 
+                           readonly>
+                    <p style="font-size: 12px; color: #666; margin-top: 10px;">
+                        Click the URL above to copy it
+                    </p>
+                    <div style="margin-top: 15px;">
+                        <button onclick="shareNative('${gameUrl}')" 
+                                style="padding: 8px 15px; background: #4CAF50; color: white; border: none; border-radius: 5px; margin: 5px; cursor: pointer;">
+                            📤 Share
+                        </button>
+                        <button onclick="copyToClipboard('${gameUrl}')" 
+                                style="padding: 8px 15px; background: #2196F3; color: white; border: none; border-radius: 5px; margin: 5px; cursor: pointer;">
+                            📋 Copy
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Native share API (if available)
+        function shareNative(url) {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Mobile Coin Collector Game',
+                    text: 'Play this fun mobile game!',
+                    url: url
+                }).then(() => {
+                    console.log('✅ Successfully shared');
+                    hideQR();
+                }).catch((error) => {
+                    console.log('❌ Error sharing:', error);
+                    copyToClipboard(url);
+                });
+            } else {
+                copyToClipboard(url);
+            }
+        }
+        
+        // Copy to clipboard
+        function copyToClipboard(text) {
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showCopyNotification();
+                }).catch(() => {
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    showCopyNotification();
+                });
+            }
+        }
+        
+        // Show copy notification
+        function showCopyNotification() {
+            const notification = document.createElement('div');
+            notification.innerHTML = '✅ URL copied to clipboard!';
+            notification.style.cssText = `
+                position: fixed; top: 20px; right: 20px; z-index: 10000;
+                background: #4CAF50; color: white; padding: 10px 20px;
+                border-radius: 5px; font-size: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 3000);
         }
         
         function hideQR() {
@@ -360,13 +407,6 @@
         // Hide loading screen once everything is loaded
         window.addEventListener('load', function() {
             console.log('📦 Window loaded, checking for game...');
-            
-            // Check if QRCode library loaded
-            if (typeof QRCode !== 'undefined') {
-                console.log('✅ QRCode library loaded successfully');
-            } else {
-                console.warn('⚠️ QRCode library not loaded');
-            }
             
             // Set a timeout to check if game loaded
             loadingTimeout = setTimeout(() => {
