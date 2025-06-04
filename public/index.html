@@ -286,35 +286,25 @@
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
     
     <script>
-        // Smart QR Code functionality - detects multiplayer vs single-player mode
+        // Smart QR Code functionality - uses detected game mode
         function showQR() {
             console.log('📱 Show QR button clicked');
             
             const currentUrl = window.location.href;
             let gameUrl = currentUrl;
-            let gameMode = 'Unknown';
+            let gameMode = window.gameMode || 'single-player'; // Use detected mode
             
-            // Detect game mode based on environment
+            // Set appropriate URLs based on detected environment
             if (currentUrl.includes('railway.app')) {
-                // Railway deployment - multiplayer mode
                 gameUrl = 'https://muliplayer-phone-production.up.railway.app/';
                 gameMode = 'Multiplayer (Railway)';
-                console.log('🚂 Detected Railway multiplayer environment');
             } else if (currentUrl.includes('vercel.app')) {
-                // Vercel deployment - single-player mode
                 gameUrl = 'https://muliplayer-phone.vercel.app/';
                 gameMode = 'Single-player (Vercel)';
-                console.log('▲ Detected Vercel single-player environment');
-            } else if (window.io && typeof io === 'function') {
-                // Local development with Socket.io - multiplayer mode
-                gameUrl = currentUrl;
-                gameMode = 'Multiplayer (Local)';
-                console.log('🏠 Detected local multiplayer environment');
             } else {
-                // Fallback - assume single-player
+                // Local development - use current URL
                 gameUrl = currentUrl;
-                gameMode = 'Single-player (Local)';
-                console.log('💻 Detected local single-player environment');
+                gameMode = window.gameMode === 'multiplayer' ? 'Multiplayer (Local)' : 'Single-player (Local)';
             }
             
             console.log(`🌐 Game mode: ${gameMode}`);
@@ -567,6 +557,67 @@
         }, 1000);
     </script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="js/game.js"></script>
+    <script>
+        // Smart game version loading - detect multiplayer vs single-player environment
+        (function() {
+            console.log('🔍 Detecting game environment...');
+            
+            const currentUrl = window.location.href;
+            let gameScript = 'js/game-offline.js'; // Default to single-player
+            let isMultiplayer = false;
+            
+            // Detect if we should use multiplayer version
+            if (currentUrl.includes('railway.app')) {
+                // Railway deployment - definitely multiplayer
+                gameScript = 'js/game.js';
+                isMultiplayer = true;
+                console.log('🚂 Railway detected - loading multiplayer version');
+            } else if (currentUrl.includes('vercel.app')) {
+                // Vercel deployment - single-player only
+                gameScript = 'js/game-offline.js';
+                isMultiplayer = false;
+                console.log('▲ Vercel detected - loading single-player version');
+            } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                // Local development - check if Socket.io server is likely running
+                // We'll try multiplayer first, fall back to single-player if it fails
+                gameScript = 'js/game.js';
+                isMultiplayer = true;
+                console.log('🏠 Local environment - attempting multiplayer version');
+            } else {
+                // Unknown environment - default to single-player for safety
+                gameScript = 'js/game-offline.js';
+                isMultiplayer = false;
+                console.log('❓ Unknown environment - defaulting to single-player version');
+            }
+            
+            console.log('📄 Loading game script:', gameScript);
+            console.log('🎮 Multiplayer mode:', isMultiplayer);
+            
+            // Store the mode for other functions to use
+            window.gameMode = isMultiplayer ? 'multiplayer' : 'single-player';
+            
+            // Create and load the script
+            const script = document.createElement('script');
+            script.src = gameScript;
+            script.onload = function() {
+                console.log('✅ Game script loaded successfully:', gameScript);
+            };
+            script.onerror = function() {
+                console.error('❌ Failed to load game script:', gameScript);
+                // If multiplayer fails in local environment, try single-player
+                if (isMultiplayer && window.location.hostname === 'localhost') {
+                    console.log('🔄 Falling back to single-player version...');
+                    window.gameMode = 'single-player';
+                    const fallbackScript = document.createElement('script');
+                    fallbackScript.src = 'js/game-offline.js';
+                    fallbackScript.onload = function() {
+                        console.log('✅ Fallback single-player script loaded');
+                    };
+                    document.head.appendChild(fallbackScript);
+                }
+            };
+            document.head.appendChild(script);
+        })();
+    </script>
 </body>
 </html> 

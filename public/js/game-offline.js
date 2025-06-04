@@ -16,8 +16,24 @@ class GameScene extends Phaser.Scene {
     preload() {
         console.log('📦 Preloading assets...');
         
-        // Create graphics instead of loading data URIs
-        console.log('🎨 Creating graphics assets...');
+        // Create simple colored rectangles for sprites using Phaser graphics
+        // This avoids data URI issues in deployed environments
+        
+        // Create player sprite
+        const playerGraphics = this.add.graphics();
+        playerGraphics.fillStyle(0x4CAF50); // Green color
+        playerGraphics.fillRect(0, 0, 32, 32);
+        playerGraphics.generateTexture('player', 32, 32);
+        playerGraphics.destroy();
+        
+        // Create coin sprite  
+        const coinGraphics = this.add.graphics();
+        coinGraphics.fillStyle(0xFFD700); // Gold color
+        coinGraphics.fillCircle(16, 16, 14);
+        coinGraphics.generateTexture('coin', 32, 32);
+        coinGraphics.destroy();
+        
+        console.log('✅ Sprites created using Phaser graphics generation');
         
         // Add loading progress
         this.load.on('progress', (value) => {
@@ -33,9 +49,6 @@ class GameScene extends Phaser.Scene {
         console.log('🚀 Creating game scene...');
         
         try {
-            // Create graphics for sprites
-            this.createGraphics();
-            
             // Set world bounds to be larger than screen
             this.physics.world.setBounds(0, 0, 1200, 900);
 
@@ -71,26 +84,6 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    createGraphics() {
-        console.log('🎨 Creating sprite graphics...');
-        
-        // Create player sprite (green circle)
-        const playerGraphics = this.add.graphics();
-        playerGraphics.fillStyle(0x00FF88);
-        playerGraphics.fillCircle(15, 15, 15);
-        playerGraphics.generateTexture('player', 30, 30);
-        playerGraphics.destroy();
-        
-        // Create coin sprite (gold circle)
-        const coinGraphics = this.add.graphics();
-        coinGraphics.fillStyle(0xFFD700);
-        coinGraphics.fillCircle(10, 10, 10);
-        coinGraphics.generateTexture('coin', 20, 20);
-        coinGraphics.destroy();
-        
-        console.log('✅ Graphics created successfully');
-    }
-
     createBackground() {
         try {
             // Create a subtle grid pattern
@@ -118,6 +111,7 @@ class GameScene extends Phaser.Scene {
         console.log('👤 Creating player...');
         try {
             this.player = this.physics.add.sprite(600, 450, 'player');
+            this.player.setDisplaySize(30, 30); // Match multiplayer version size
             this.player.setCollideWorldBounds(true);
 
             // Camera follows player
@@ -150,7 +144,12 @@ class GameScene extends Phaser.Scene {
             const id = 'item_' + Date.now() + '_' + Math.random();
             
             const item = this.physics.add.sprite(x, y, 'coin');
+            item.setDisplaySize(20, 20); // Match multiplayer version
+            item.setTint(0xFFD700); // Gold color
             item.itemId = id;
+            
+            // Make hitbox slightly larger for mobile (same as multiplayer)
+            item.body.setSize(24, 24);
             
             // Add some sparkle effect
             item.setAlpha(0);
@@ -163,10 +162,18 @@ class GameScene extends Phaser.Scene {
 
             this.items[id] = item;
 
-            // Add collision detection
+            // Improved collision detection (same as multiplayer)
             if (this.player) {
-                this.physics.add.overlap(this.player, item, () => {
-                    this.collectItem(id);
+                const overlap = this.physics.add.overlap(this.player, item, (player, collectedItem) => {
+                    console.log('🎯 Collision detected! Item:', collectedItem.itemId);
+                    
+                    // Prevent double collection
+                    if (this.items[collectedItem.itemId]) {
+                        this.collectItem(collectedItem.itemId);
+                        
+                        // Remove overlap to prevent duplicate triggers
+                        this.physics.world.removeCollider(overlap);
+                    }
                 });
             }
         } catch (error) {
