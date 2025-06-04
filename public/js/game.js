@@ -136,14 +136,27 @@ class GameScene extends Phaser.Scene {
         // Handle item collection - IMPROVED
         this.socket.on('itemCollected', (data) => {
             console.log('🪙 Item collected:', data.itemId, 'by player:', data.playerId);
+            
+            // Remove the collected item if it exists
             if (this.items[data.itemId]) {
-                // Add particle effect before destroying
+                console.log('🗑️ Removing item from client:', data.itemId);
+                
+                // Add particle effect before destroying (only if we have the item)
                 this.createCoinEffect(this.items[data.itemId].x, this.items[data.itemId].y);
                 this.items[data.itemId].destroy();
                 delete this.items[data.itemId];
+            } else {
+                console.log('⚠️ Item already removed or not found:', data.itemId);
+                
+                // Show effect at the collection location if provided
+                if (data.collectedAt) {
+                    this.createCoinEffect(data.collectedAt.x, data.collectedAt.y);
+                }
             }
+            
             // Create new item
             if (data.newItem) {
+                console.log('🆕 Creating new item:', data.newItem.id, 'at', data.newItem.x.toFixed(1), data.newItem.y.toFixed(1));
                 this.createItem(data.newItem);
             }
         });
@@ -253,6 +266,13 @@ class GameScene extends Phaser.Scene {
     }
 
     createItem(itemData) {
+        // Remove any existing item with same ID first
+        if (this.items[itemData.id]) {
+            console.log('🔄 Replacing existing item:', itemData.id);
+            this.items[itemData.id].destroy();
+            delete this.items[itemData.id];
+        }
+        
         const item = this.physics.add.sprite(itemData.x, itemData.y, 'coin');
         item.setDisplaySize(20, 20);
         item.setTint(0xFFD700); // Gold color
@@ -274,19 +294,24 @@ class GameScene extends Phaser.Scene {
 
         // Improved collision detection - works better cross-platform
         if (this.myPlayer) {
-            // Remove any existing overlap for this item
-            this.physics.world.removeCollider(item);
-            
             // Add new overlap detection
             const overlap = this.physics.add.overlap(this.myPlayer, item, (player, collectedItem) => {
                 console.log('🎯 Collision detected! Item:', collectedItem.itemId);
+                console.log('📍 Player pos:', player.x.toFixed(1), player.y.toFixed(1));
+                console.log('📍 Item pos:', collectedItem.x.toFixed(1), collectedItem.y.toFixed(1));
                 
-                // Prevent double collection
+                // Prevent double collection by checking if item still exists
                 if (this.items[collectedItem.itemId]) {
+                    console.log('📤 Sending collect request for:', collectedItem.itemId);
                     this.socket.emit('collectItem', collectedItem.itemId);
                     
-                    // Remove overlap to prevent duplicate triggers
+                    // Immediately remove the overlap to prevent duplicate triggers
                     this.physics.world.removeCollider(overlap);
+                    
+                    // Temporarily disable the item body to prevent multiple collections
+                    collectedItem.body.enable = false;
+                } else {
+                    console.log('⚠️ Item already collected, ignoring collision');
                 }
             });
         }

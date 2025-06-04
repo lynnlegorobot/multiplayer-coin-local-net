@@ -14,11 +14,20 @@ class LeaderboardManager {
         try {
             // Check if Supabase is available
             if (typeof supabase !== 'undefined' && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
+                console.log('🔗 Connecting to Supabase...');
+                console.log('📍 URL:', window.SUPABASE_URL);
+                console.log('🔑 Has key:', !!window.SUPABASE_ANON_KEY);
+                
                 this.supabase = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
                 await this.testConnection();
                 console.log('✅ Supabase leaderboard connected');
             } else {
                 console.log('⚠️ Supabase not configured - using offline mode');
+                console.log('🔍 Debug info:', {
+                    supabaseLibrary: typeof supabase !== 'undefined',
+                    hasUrl: !!window.SUPABASE_URL,
+                    hasKey: !!window.SUPABASE_ANON_KEY
+                });
                 this.isOnline = false;
             }
         } catch (error) {
@@ -29,15 +38,26 @@ class LeaderboardManager {
 
     async testConnection() {
         try {
+            console.log('🧪 Testing Supabase connection...');
             const { data, error } = await this.supabase
                 .from('leaderboard')
                 .select('id')
                 .limit(1);
             
-            if (error) throw error;
+            if (error) {
+                console.error('❌ Supabase query error:', error);
+                throw error;
+            }
+            
+            console.log('✅ Supabase connection test successful');
             this.isOnline = true;
         } catch (error) {
             console.error('❌ Leaderboard table access failed:', error);
+            console.error('🔍 Error details:', {
+                message: error.message,
+                code: error.code,
+                hint: error.hint
+            });
             this.isOnline = false;
         }
     }
@@ -52,8 +72,85 @@ class LeaderboardManager {
                    nouns[Math.floor(Math.random() * nouns.length)] + 
                    Math.floor(Math.random() * 100);
             localStorage.setItem('playerName', name);
+            
+            // Show name to user and allow customization
+            setTimeout(() => {
+                this.showNameCustomization(name);
+            }, 2000);
         }
         return name;
+    }
+
+    showNameCustomization(currentName) {
+        if (document.getElementById('nameModal')) return; // Already showing
+        
+        const modal = document.createElement('div');
+        modal.id = 'nameModal';
+        modal.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); display: flex; align-items: center;
+            justify-content: center; z-index: 2000; padding: 20px; box-sizing: border-box;
+        `;
+        
+        modal.innerHTML = `
+            <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 350px; width: 100%;">
+                <h3 style="color: #333; margin-bottom: 20px;">🎮 Welcome to the game!</h3>
+                <p style="color: #666; margin-bottom: 20px;">Your player name is:</p>
+                <input type="text" id="playerNameInput" value="${currentName}" 
+                       style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; 
+                              font-size: 16px; text-align: center; margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button onclick="window.leaderboardManager.saveName()" 
+                            style="padding: 12px 20px; background: #4CAF50; color: white; border: none; 
+                                   border-radius: 8px; cursor: pointer; font-size: 16px;">
+                        ✅ Keep This Name
+                    </button>
+                    <button onclick="window.leaderboardManager.generateNewName()" 
+                            style="padding: 12px 20px; background: #2196F3; color: white; border: none; 
+                                   border-radius: 8px; cursor: pointer; font-size: 16px;">
+                        🎲 New Random
+                    </button>
+                </div>
+                <p style="font-size: 12px; color: #999; margin-top: 15px;">
+                    You can change this anytime in the leaderboard
+                </p>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+
+    saveName() {
+        const input = document.getElementById('playerNameInput');
+        if (input) {
+            const newName = input.value.trim();
+            if (newName && newName.length >= 2) {
+                this.playerName = newName;
+                localStorage.setItem('playerName', newName);
+                console.log('✅ Player name saved:', newName);
+            }
+        }
+        this.hideNameModal();
+    }
+
+    generateNewName() {
+        const adjectives = ['Swift', 'Mighty', 'Golden', 'Shadow', 'Cosmic', 'Thunder', 'Crystal', 'Neon', 'Blazing', 'Electric'];
+        const nouns = ['Hunter', 'Collector', 'Seeker', 'Champion', 'Explorer', 'Warrior', 'Legend', 'Hero', 'Master', 'Pro'];
+        const newName = adjectives[Math.floor(Math.random() * adjectives.length)] + 
+                       nouns[Math.floor(Math.random() * nouns.length)] + 
+                       Math.floor(Math.random() * 100);
+        
+        const input = document.getElementById('playerNameInput');
+        if (input) {
+            input.value = newName;
+        }
+    }
+
+    hideNameModal() {
+        const modal = document.getElementById('nameModal');
+        if (modal) {
+            modal.remove();
+        }
     }
 
     async submitScore(score) {

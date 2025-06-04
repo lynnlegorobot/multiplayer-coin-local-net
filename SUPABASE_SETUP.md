@@ -82,6 +82,12 @@ The server will automatically inject these into the client via `/config.js` endp
 - **Anonymous score submission** (no authentication required)
 - **Rate limiting** handled by Supabase
 
+**⚠️ Important: Anon keys are SAFE to expose!**
+- Anon keys are designed to be public (like API keys)
+- They only allow operations you explicitly permit in RLS policies
+- Your actual database credentials remain secure
+- No sensitive data can be accessed without proper policies
+
 ## 📊 Leaderboard Schema
 
 | Column | Type | Description |
@@ -99,6 +105,36 @@ After setup, the multiplayer version will:
 2. **Submit scores** automatically when games end
 3. **Update leaderboard** in real-time
 4. **Handle offline gracefully** (fallback to local scores)
+
+## 🔧 Troubleshooting
+
+**Leaderboard not working?**
+
+1. **Check console logs** for Supabase connection errors
+2. **Verify environment variables** are set in Railway:
+   ```
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_ANON_KEY=your_actual_anon_key
+   ```
+3. **Test connection** by visiting: `https://your-railway-app.railway.app/config.js`
+   - Should show your Supabase configuration
+4. **Check RLS policies** in Supabase dashboard
+5. **Verify table exists** with correct schema
+
+**Common issues:**
+- ❌ **Environment variables not set** → Check Railway dashboard
+- ❌ **Wrong table name** → Should be exactly `leaderboard`
+- ❌ **RLS blocking access** → Check policies in Supabase dashboard
+- ❌ **Network issues** → Check browser console for CORS errors
+
+**Debug checklist:**
+```
+✅ Supabase project created
+✅ SQL table script run successfully  
+✅ Environment variables added to Railway
+✅ Railway deployment successful
+✅ Browser console shows "Supabase connection test successful"
+```
 
 ## 🌐 Alternative Setup
 

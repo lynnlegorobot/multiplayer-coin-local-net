@@ -32,15 +32,15 @@ app.get('/favicon.ico', (req, res) => {
 const players = {};
 const gameState = {
     items: [],
-    maxItems: 10
+    maxItems: 15 // Increased to match client
 };
 
-// Generate random items on the map
+// Generate random items on the map (matching client bounds)
 function generateItem() {
     return {
         id: Math.random().toString(36).substr(2, 9),
-        x: Math.random() * 800,
-        y: Math.random() * 600,
+        x: Math.random() * 1150 + 50, // 50-1150 (matching client bounds)
+        y: Math.random() * 850 + 50,  // 50-850 (matching client bounds)
         type: 'coin'
     };
 }
@@ -53,11 +53,11 @@ for (let i = 0; i < gameState.maxItems; i++) {
 io.on('connection', (socket) => {
     console.log('A player connected:', socket.id);
 
-    // Create new player
+    // Create new player (matching client bounds)
     players[socket.id] = {
         id: socket.id,
-        x: Math.random() * 800,
-        y: Math.random() * 600,
+        x: Math.random() * 1100 + 100, // 100-1100 (safe spawn area)
+        y: Math.random() * 800 + 100,  // 100-800 (safe spawn area)
         color: Math.floor(Math.random() * 0xFFFFFF),
         score: 0
     };
@@ -82,19 +82,35 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Handle item collection
+    // Handle item collection - ENHANCED
     socket.on('collectItem', (itemId) => {
+        console.log(`🪙 Player ${socket.id} attempting to collect item ${itemId}`);
+        
         const itemIndex = gameState.items.findIndex(item => item.id === itemId);
         if (itemIndex !== -1) {
+            const collectedItem = gameState.items[itemIndex];
             gameState.items.splice(itemIndex, 1);
             players[socket.id].score += 10;
             
-            // Generate new item
-            gameState.items.push(generateItem());
+            console.log(`✅ Item ${itemId} collected! New score: ${players[socket.id].score}`);
+            console.log(`📊 Items remaining: ${gameState.items.length}`);
             
-            // Broadcast item collection and new item
-            io.emit('itemCollected', { itemId, playerId: socket.id, newItem: gameState.items[gameState.items.length - 1] });
+            // Generate new item
+            const newItem = generateItem();
+            gameState.items.push(newItem);
+            
+            console.log(`🆕 Generated new item: ${newItem.id} at (${newItem.x.toFixed(1)}, ${newItem.y.toFixed(1)})`);
+            
+            // Broadcast item collection and new item to ALL clients (including sender)
+            io.emit('itemCollected', { 
+                itemId, 
+                playerId: socket.id, 
+                newItem: newItem,
+                collectedAt: { x: collectedItem.x, y: collectedItem.y }
+            });
             io.emit('scoreUpdate', { playerId: socket.id, score: players[socket.id].score });
+        } else {
+            console.log(`❌ Item ${itemId} not found - already collected?`);
         }
     });
 
