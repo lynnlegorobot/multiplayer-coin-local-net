@@ -227,7 +227,7 @@
     <div id="gameContainer">
         <div id="gameUI">
             <div>🪙 Score: <span id="score">0</span></div>
-            <div>👤 <span id="playerCount">1 (Offline)</span></div>
+            <div>👤 Players: <span id="playerCount">1</span></div>
         </div>
         
         <button id="shareButton" onclick="showQR()">📱 Share QR</button>
@@ -473,6 +473,7 @@
             }
         }, 1000);
     </script>
-    <script src="js/game-offline.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="js/game.js"></script>
 </body>
 </html> 

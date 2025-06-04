@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "A multiplayer web-based Phaser.io game optimized for mobile devices",
   "main": "server.js",
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
@@ -14,7 +18,7 @@
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
-  "keywords": ["phaser", "multiplayer", "mobile", "game", "websocket"],
+  "keywords": ["phaser", "multiplayer", "mobile", "game", "websocket", "railway"],
   "author": "",
   "license": "MIT"
 } 
