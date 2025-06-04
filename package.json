@@ -13,12 +13,13 @@
   },
   "dependencies": {
     "express": "^4.18.2",
-    "socket.io": "^4.7.2"
+    "socket.io": "^4.7.2",
+    "@supabase/supabase-js": "^2.38.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
-  "keywords": ["phaser", "multiplayer", "mobile", "game", "websocket", "railway"],
+  "keywords": ["phaser", "multiplayer", "mobile", "game", "websocket", "railway", "supabase", "leaderboard"],
   "author": "",
   "license": "MIT"
 } 

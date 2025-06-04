@@ -596,27 +596,66 @@
             // Store the mode for other functions to use
             window.gameMode = isMultiplayer ? 'multiplayer' : 'single-player';
             
-            // Create and load the script
-            const script = document.createElement('script');
-            script.src = gameScript;
-            script.onload = function() {
-                console.log('✅ Game script loaded successfully:', gameScript);
-            };
-            script.onerror = function() {
-                console.error('❌ Failed to load game script:', gameScript);
-                // If multiplayer fails in local environment, try single-player
-                if (isMultiplayer && window.location.hostname === 'localhost') {
-                    console.log('🔄 Falling back to single-player version...');
-                    window.gameMode = 'single-player';
-                    const fallbackScript = document.createElement('script');
-                    fallbackScript.src = 'js/game-offline.js';
-                    fallbackScript.onload = function() {
-                        console.log('✅ Fallback single-player script loaded');
+            // Load Supabase for multiplayer version
+            if (isMultiplayer) {
+                console.log('📊 Loading Supabase for leaderboard...');
+                
+                // Set Supabase environment variables (these would be set by Railway)
+                window.SUPABASE_URL = window.SUPABASE_URL || process?.env?.SUPABASE_URL;
+                window.SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || process?.env?.SUPABASE_ANON_KEY;
+                
+                // Load Supabase client
+                const supabaseScript = document.createElement('script');
+                supabaseScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js';
+                supabaseScript.onload = function() {
+                    console.log('✅ Supabase client loaded');
+                    
+                    // Load leaderboard manager
+                    const leaderboardScript = document.createElement('script');
+                    leaderboardScript.src = 'js/leaderboard.js';
+                    leaderboardScript.onload = function() {
+                        console.log('✅ Leaderboard manager loaded');
+                        loadGameScript();
                     };
-                    document.head.appendChild(fallbackScript);
-                }
-            };
-            document.head.appendChild(script);
+                    leaderboardScript.onerror = function() {
+                        console.warn('⚠️ Leaderboard script failed to load');
+                        loadGameScript();
+                    };
+                    document.head.appendChild(leaderboardScript);
+                };
+                supabaseScript.onerror = function() {
+                    console.warn('⚠️ Supabase client failed to load - continuing without leaderboard');
+                    loadGameScript();
+                };
+                document.head.appendChild(supabaseScript);
+            } else {
+                // Single-player doesn't need Supabase
+                loadGameScript();
+            }
+            
+            function loadGameScript() {
+                // Create and load the game script
+                const script = document.createElement('script');
+                script.src = gameScript;
+                script.onload = function() {
+                    console.log('✅ Game script loaded successfully:', gameScript);
+                };
+                script.onerror = function() {
+                    console.error('❌ Failed to load game script:', gameScript);
+                    // If multiplayer fails in local environment, try single-player
+                    if (isMultiplayer && window.location.hostname === 'localhost') {
+                        console.log('🔄 Falling back to single-player version...');
+                        window.gameMode = 'single-player';
+                        const fallbackScript = document.createElement('script');
+                        fallbackScript.src = 'js/game-offline.js';
+                        fallbackScript.onload = function() {
+                            console.log('✅ Fallback single-player script loaded');
+                        };
+                        document.head.appendChild(fallbackScript);
+                    }
+                };
+                document.head.appendChild(script);
+            }
         })();
     </script>
 </body>

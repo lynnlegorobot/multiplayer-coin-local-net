@@ -10,7 +10,64 @@ class GameScene extends Phaser.Scene {
         this.score = 0;
         this.itemCount = 0;
         this.maxItems = 15;
+        this.highScore = this.getHighScore(); // Load high score
         console.log('🎯 GameScene constructor called');
+    }
+
+    // Local high score management
+    getHighScore() {
+        const saved = localStorage.getItem('coinCollectorHighScore');
+        return saved ? parseInt(saved) : 0;
+    }
+
+    saveHighScore() {
+        localStorage.setItem('coinCollectorHighScore', this.score.toString());
+        console.log('💾 High score saved:', this.score);
+    }
+
+    checkNewHighScore() {
+        if (this.score > this.highScore) {
+            this.highScore = this.score;
+            this.saveHighScore();
+            this.showNewHighScoreEffect();
+            return true;
+        }
+        return false;
+    }
+
+    showNewHighScoreEffect() {
+        // Flash the UI and show celebration
+        const camera = this.cameras.main;
+        camera.flash(1000, 255, 215, 0); // Gold flash
+        
+        // Show "NEW HIGH SCORE!" text
+        const centerX = camera.centerX;
+        const centerY = camera.centerY;
+        
+        const highScoreText = this.add.text(centerX, centerY - 50, 'NEW HIGH SCORE!', {
+            fontSize: '32px',
+            fontStyle: 'bold',
+            color: '#FFD700',
+            stroke: '#000000',
+            strokeThickness: 4
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: highScoreText,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            yoyo: true,
+            repeat: 3,
+            duration: 300,
+            onComplete: () => {
+                this.tweens.add({
+                    targets: highScoreText,
+                    alpha: 0,
+                    duration: 1000,
+                    onComplete: () => highScoreText.destroy()
+                });
+            }
+        });
     }
 
     preload() {
@@ -197,6 +254,10 @@ class GameScene extends Phaser.Scene {
 
             // Update score
             this.score += 10;
+            
+            // Check for new high score
+            this.checkNewHighScore();
+            
             this.updateUI();
 
             // Generate new item after a short delay
@@ -383,7 +444,12 @@ class GameScene extends Phaser.Scene {
             const playerCountElement = document.getElementById('playerCount');
             
             if (scoreElement) scoreElement.textContent = this.score;
-            if (playerCountElement) playerCountElement.textContent = '1 (Offline Mode)';
+            if (playerCountElement) {
+                playerCountElement.innerHTML = `
+                    1 (Offline Mode)<br>
+                    <small style="color: #FFD700;">High: ${this.highScore}</small>
+                `;
+            }
         } catch (error) {
             console.error('❌ Error updating UI:', error);
         }

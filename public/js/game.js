@@ -7,6 +7,8 @@ class GameScene extends Phaser.Scene {
         this.cursors = null;
         this.joystickData = { x: 0, y: 0 };
         this.lastMoveTime = 0;
+        this.score = 0;
+        this.gameStartTime = Date.now();
     }
 
     preload() {
@@ -63,10 +65,16 @@ class GameScene extends Phaser.Scene {
         // Add connection debugging
         this.socket.on('connect', () => {
             console.log('🔗 Connected to server with ID:', this.socket.id);
+            // Initialize leaderboard when connected
+            if (window.leaderboardManager) {
+                window.leaderboardManager.refreshLeaderboard();
+            }
         });
 
         this.socket.on('disconnect', () => {
             console.log('🔌 Disconnected from server');
+            // Submit final score when disconnecting
+            this.submitFinalScore();
         });
 
         // Receive current players when joining
@@ -140,11 +148,17 @@ class GameScene extends Phaser.Scene {
             }
         });
 
-        // Handle score updates
+        // Handle score updates - ENHANCED
         this.socket.on('scoreUpdate', (data) => {
             if (data.playerId === this.socket.id) {
+                this.score = data.score;
                 document.getElementById('score').textContent = data.score;
                 console.log('📊 Score updated:', data.score);
+                
+                // Show rank achievement for significant scores
+                if (data.score > 0 && data.score % 100 === 0 && window.leaderboardManager) {
+                    window.leaderboardManager.showRankAchievement(data.score);
+                }
             }
         });
     }
@@ -377,7 +391,13 @@ class GameScene extends Phaser.Scene {
     }
 
     updateUI() {
-        document.getElementById('playerCount').textContent = Object.keys(this.players).length;
+        // Update leaderboard UI if available, otherwise fallback to basic player count
+        if (window.leaderboardManager) {
+            window.leaderboardManager.updateLeaderboardUI(window.leaderboardManager.lastScores || []);
+        } else {
+            // Fallback for when leaderboard is not available
+            document.getElementById('playerCount').textContent = Object.keys(this.players).length;
+        }
     }
 
     // Add background pattern like single-player
@@ -401,6 +421,20 @@ class GameScene extends Phaser.Scene {
             console.log('✅ Background grid created');
         } catch (error) {
             console.error('❌ Error creating background:', error);
+        }
+    }
+
+    // Submit score to leaderboard
+    async submitFinalScore() {
+        if (this.score <= 0) return;
+        
+        const sessionDuration = (Date.now() - this.gameStartTime) / 1000; // seconds
+        
+        console.log(`🏆 Game session ended - Score: ${this.score}, Duration: ${sessionDuration.toFixed(1)}s`);
+        
+        if (window.leaderboardManager) {
+            await window.leaderboardManager.submitScore(this.score);
+            window.leaderboardManager.saveLocalScore(this.score); // Also save locally as backup
         }
     }
 }
@@ -432,4 +466,22 @@ const game = new Phaser.Game(config);
 // Handle window resize
 window.addEventListener('resize', () => {
     game.scale.resize(window.innerWidth, window.innerHeight);
+});
+
+// Handle page unload/close to submit final score
+window.addEventListener('beforeunload', () => {
+    const gameScene = game.scene.scenes[0];
+    if (gameScene && gameScene.submitFinalScore) {
+        gameScene.submitFinalScore();
+    }
+});
+
+// Handle page visibility change (mobile app switching)
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        const gameScene = game.scene.scenes[0];
+        if (gameScene && gameScene.submitFinalScore) {
+            gameScene.submitFinalScore();
+        }
+    }
 }); 
