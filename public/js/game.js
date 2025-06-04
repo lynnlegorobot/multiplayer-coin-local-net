@@ -31,8 +31,8 @@ class GameScene extends Phaser.Scene {
     }
 
     create() {
-        // Set world bounds
-        this.physics.world.setBounds(0, 0, 800, 600);
+        // Set world bounds to be larger than screen (same as single-player)
+        this.physics.world.setBounds(0, 0, 1200, 900);
 
         // Initialize socket connection
         this.socket = io();
@@ -48,6 +48,9 @@ class GameScene extends Phaser.Scene {
 
         // Update score display
         this.updateUI();
+        
+        // Add background pattern (same as single-player)
+        this.createBackground();
         
         // Signal that game has loaded successfully
         console.log('🎮 Game scene created successfully');
@@ -104,6 +107,10 @@ class GameScene extends Phaser.Scene {
         this.socket.on('playerMoved', (playerInfo) => {
             if (this.players[playerInfo.id] && playerInfo.id !== this.socket.id) {
                 this.players[playerInfo.id].setPosition(playerInfo.x, playerInfo.y);
+                // Apply rotation if received
+                if (playerInfo.rotation !== undefined) {
+                    this.players[playerInfo.id].setRotation(playerInfo.rotation);
+                }
             }
         });
 
@@ -160,6 +167,8 @@ class GameScene extends Phaser.Scene {
         const handleStart = (e) => {
             e.preventDefault();
             isDragging = true;
+            // Visual feedback like single-player
+            joystick.style.opacity = '0.8';
         };
 
         const handleMove = (e) => {
@@ -193,6 +202,8 @@ class GameScene extends Phaser.Scene {
         const handleEnd = (e) => {
             e.preventDefault();
             isDragging = false;
+            // Reset visual feedback like single-player
+            joystick.style.opacity = '0.5';
             joystickKnob.style.transform = 'translate(-50%, -50%)';
             this.joystickData.x = 0;
             this.joystickData.y = 0;
@@ -219,8 +230,9 @@ class GameScene extends Phaser.Scene {
 
         if (isMyPlayer) {
             this.myPlayer = player;
-            this.cameras.main.startFollow(player);
-            this.cameras.main.setZoom(1);
+            // Smooth camera following like single-player
+            this.cameras.main.startFollow(player, true, 0.05, 0.05);
+            this.cameras.main.setZoom(1.2);
         }
 
         this.updateUI();
@@ -234,6 +246,15 @@ class GameScene extends Phaser.Scene {
         
         // Make hitbox slightly larger for mobile
         item.body.setSize(24, 24);
+        
+        // Add fade-in animation like single-player
+        item.setAlpha(0);
+        this.tweens.add({
+            targets: item,
+            alpha: 1,
+            duration: 500,
+            ease: 'Power2'
+        });
 
         this.items[itemData.id] = item;
 
@@ -257,29 +278,55 @@ class GameScene extends Phaser.Scene {
         }
     }
 
-    // Add visual feedback for coin collection
+    // Enhanced visual feedback for coin collection (same as single-player)
     createCoinEffect(x, y) {
-        // Create sparkle effect
-        const particles = this.add.particles(x, y, 'coin', {
-            scale: { start: 0.3, end: 0 },
-            speed: { min: 50, max: 100 },
-            lifespan: 300,
-            quantity: 5,
-            tint: [0xFFD700, 0xFFF700, 0xFFFF00]
-        });
-        
-        // Clean up after animation
-        setTimeout(() => {
-            if (particles) {
-                particles.destroy();
+        try {
+            // Camera shake effect
+            this.cameras.main.shake(100, 0.01);
+            
+            // Create particle effect with graphics
+            for (let i = 0; i < 5; i++) {
+                const particle = this.add.graphics();
+                particle.fillStyle(0xFFD700);
+                particle.fillCircle(0, 0, 3);
+                particle.x = x;
+                particle.y = y;
+
+                this.tweens.add({
+                    targets: particle,
+                    x: x + Phaser.Math.Between(-50, 50),
+                    y: y + Phaser.Math.Between(-50, 50),
+                    alpha: 0,
+                    duration: 300,
+                    ease: 'Power2',
+                    onComplete: () => particle.destroy()
+                });
             }
-        }, 500);
+
+            // Show score popup
+            const scoreText = this.add.text(x, y - 30, '+10', {
+                fontSize: '20px',
+                fontStyle: 'bold',
+                color: '#FFD700'
+            }).setOrigin(0.5);
+
+            this.tweens.add({
+                targets: scoreText,
+                y: y - 60,
+                alpha: 0,
+                duration: 800,
+                ease: 'Power2',
+                onComplete: () => scoreText.destroy()
+            });
+        } catch (error) {
+            console.error('❌ Error creating collection effect:', error);
+        }
     }
 
     update() {
         if (!this.myPlayer) return;
 
-        const speed = 200;
+        const speed = 250; // Increased speed like single-player
         let velocityX = 0;
         let velocityY = 0;
 
@@ -304,6 +351,12 @@ class GameScene extends Phaser.Scene {
 
         // Apply velocity
         this.myPlayer.setVelocity(velocityX, velocityY);
+        
+        // Rotate player based on movement direction (same as single-player)
+        if (velocityX !== 0 || velocityY !== 0) {
+            const angle = Math.atan2(velocityY, velocityX);
+            this.myPlayer.setRotation(angle);
+        }
 
         // Send position updates (throttled for better mobile performance)
         const now = Date.now();
@@ -312,7 +365,8 @@ class GameScene extends Phaser.Scene {
             if (Math.abs(velocityX) > 0 || Math.abs(velocityY) > 0) {
                 this.socket.emit('playerMovement', {
                     x: this.myPlayer.x,
-                    y: this.myPlayer.y
+                    y: this.myPlayer.y,
+                    rotation: this.myPlayer.rotation // Send rotation too
                 });
                 this.lastMoveTime = now;
             }
@@ -324,6 +378,30 @@ class GameScene extends Phaser.Scene {
 
     updateUI() {
         document.getElementById('playerCount').textContent = Object.keys(this.players).length;
+    }
+
+    // Add background pattern like single-player
+    createBackground() {
+        try {
+            // Create a subtle grid pattern
+            const graphics = this.add.graphics();
+            graphics.lineStyle(1, 0x333333, 0.3);
+            
+            for (let x = 0; x < 1200; x += 50) {
+                graphics.moveTo(x, 0);
+                graphics.lineTo(x, 900);
+            }
+            
+            for (let y = 0; y < 900; y += 50) {
+                graphics.moveTo(0, y);
+                graphics.lineTo(1200, y);
+            }
+            
+            graphics.strokePath();
+            console.log('✅ Background grid created');
+        } catch (error) {
+            console.error('❌ Error creating background:', error);
+        }
     }
 }
 
@@ -344,7 +422,8 @@ const config = {
     scale: {
         mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH
-    }
+    },
+    backgroundColor: '#1a1a2e' // Same background as single-player
 };
 
 // Initialize the game
