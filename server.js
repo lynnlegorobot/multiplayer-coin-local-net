@@ -10,6 +10,24 @@ const io = socketIo(server);
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Serve environment variables for client-side Supabase
+app.get('/config.js', (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.send(`
+        // Environment configuration for client
+        window.SUPABASE_URL = ${JSON.stringify(process.env.SUPABASE_URL || '')};
+        window.SUPABASE_ANON_KEY = ${JSON.stringify(process.env.SUPABASE_ANON_KEY || '')};
+        console.log('🔧 Environment config loaded:', {
+            supabaseConfigured: !!(window.SUPABASE_URL && window.SUPABASE_ANON_KEY)
+        });
+    `);
+});
+
+// Simple favicon endpoint to prevent 404 errors
+app.get('/favicon.ico', (req, res) => {
+    res.status(204).end(); // No content, but successful response
+});
+
 // Game state
 const players = {};
 const gameState = {
@@ -56,6 +74,10 @@ io.on('connection', (socket) => {
         if (players[socket.id]) {
             players[socket.id].x = movementData.x;
             players[socket.id].y = movementData.y;
+            // Handle rotation if provided
+            if (movementData.rotation !== undefined) {
+                players[socket.id].rotation = movementData.rotation;
+            }
             socket.broadcast.emit('playerMoved', players[socket.id]);
         }
     });

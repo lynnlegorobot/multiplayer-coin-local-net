@@ -600,10 +600,24 @@
             if (isMultiplayer) {
                 console.log('📊 Loading Supabase for leaderboard...');
                 
-                // Set Supabase environment variables (these would be set by Railway)
-                window.SUPABASE_URL = window.SUPABASE_URL || process?.env?.SUPABASE_URL;
-                window.SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || process?.env?.SUPABASE_ANON_KEY;
-                
+                // Load environment configuration first
+                const configScript = document.createElement('script');
+                configScript.src = '/config.js';
+                configScript.onload = function() {
+                    console.log('✅ Environment config loaded');
+                    loadSupabaseAndLeaderboard();
+                };
+                configScript.onerror = function() {
+                    console.warn('⚠️ Environment config failed to load - continuing without Supabase');
+                    loadGameScript();
+                };
+                document.head.appendChild(configScript);
+            } else {
+                // Single-player doesn't need Supabase
+                loadGameScript();
+            }
+            
+            function loadSupabaseAndLeaderboard() {
                 // Load Supabase client
                 const supabaseScript = document.createElement('script');
                 supabaseScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0/dist/umd/supabase.min.js';
@@ -628,9 +642,6 @@
                     loadGameScript();
                 };
                 document.head.appendChild(supabaseScript);
-            } else {
-                // Single-player doesn't need Supabase
-                loadGameScript();
             }
             
             function loadGameScript() {

@@ -51,18 +51,22 @@ FOR UPDATE USING (true);
 
 ### 4. Add Environment Variables
 
-Create a `.env` file in your project root:
+For local development, create a `.env` file in your project root:
 
 ```env
-SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_URL=https://cjicemxagmzrcsannzkb.supabase.co
 SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaWNlbXhhZ216cmNzYW5uemtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNzgzNjAsImV4cCI6MjA2NDY1NDM2MH0.rihGlIeRlh7BOSGydCsAi0onAh2Cp-e9cOVBbE_v5Go
 ```
+
+**Note:** Replace with your actual Supabase project URL and anon key from step 3.
 
 ### 5. Railway Deployment
 
 In Railway dashboard, add environment variables:
-- `SUPABASE_URL`: Your project URL
+- `SUPABASE_URL`: Your project URL (e.g., `https://your-project.supabase.co`)
 - `SUPABASE_ANON_KEY`: Your anon key
+
+The server will automatically inject these into the client via `/config.js` endpoint.
 
 ## 🎮 Features
 
