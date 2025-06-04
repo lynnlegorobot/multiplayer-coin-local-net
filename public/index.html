@@ -121,6 +121,8 @@
             align-items: center;
             justify-content: center;
             z-index: 1000;
+            padding: 20px;
+            box-sizing: border-box;
         }
         
         #qrContent {
@@ -130,6 +132,9 @@
             text-align: center;
             max-width: 350px;
             width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
         }
         
         #qrCode {
@@ -144,6 +149,12 @@
             border-radius: 5px;
             cursor: pointer;
             margin-top: 15px;
+            font-size: 16px;
+            min-height: 44px; /* iOS minimum touch target */
+        }
+        
+        #closeQR:hover, #closeQR:active {
+            background: #cc3333;
         }
         
         #loadingScreen {
@@ -201,8 +212,26 @@
             }
             
             #shareButton {
-                font-size: 12px;
-                padding: 8px 12px;
+                font-size: 14px;
+                padding: 10px 15px;
+                min-height: 44px; /* iOS minimum touch target */
+                border-radius: 10px;
+            }
+            
+            #qrContent {
+                padding: 20px;
+                max-width: 300px;
+                width: 95%;
+            }
+            
+            #qrCode img {
+                max-width: 180px !important;
+            }
+            
+            /* Ensure buttons are touch-friendly */
+            button {
+                min-height: 44px;
+                font-size: 16px;
             }
         }
         
@@ -503,9 +532,12 @@
             `;
         });
         
-        // Debug info
+        // Debug info - Enhanced for mobile
         console.log('🌐 Current URL:', window.location.href);
         console.log('📱 User Agent:', navigator.userAgent);
+        console.log('📏 Screen size:', window.innerWidth, 'x', window.innerHeight);
+        console.log('🔧 Touch support:', 'ontouchstart' in window ? 'Yes' : 'No');
+        console.log('🤖 Mobile device:', /Mobile|Android|iPhone|iPad/.test(navigator.userAgent) ? 'Yes' : 'No');
         console.log('🔧 Debug mode enabled - check console for game loading info');
         
         // Test QR button functionality
@@ -514,6 +546,21 @@
             const shareButton = document.getElementById('shareButton');
             if (shareButton) {
                 console.log('✅ Share button found');
+                
+                // Add extra mobile event listener
+                shareButton.addEventListener('touchend', function(e) {
+                    e.preventDefault();
+                    console.log('📱 Touch event detected on share button');
+                    showQR();
+                });
+                
+                // Test button visibility
+                const rect = shareButton.getBoundingClientRect();
+                console.log('📍 Share button position:', {
+                    top: rect.top,
+                    right: rect.right,
+                    visible: rect.width > 0 && rect.height > 0
+                });
             } else {
                 console.error('❌ Share button not found');
             }

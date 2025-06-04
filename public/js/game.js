@@ -57,58 +57,87 @@ class GameScene extends Phaser.Scene {
     }
 
     setupSocketEvents() {
+        // Add connection debugging
+        this.socket.on('connect', () => {
+            console.log('🔗 Connected to server with ID:', this.socket.id);
+        });
+
+        this.socket.on('disconnect', () => {
+            console.log('🔌 Disconnected from server');
+        });
+
         // Receive current players when joining
         this.socket.on('currentPlayers', (players) => {
+            console.log('👥 Received current players:', Object.keys(players).length);
             Object.keys(players).forEach((id) => {
                 if (id === this.socket.id) {
                     this.createPlayer(players[id], true);
+                    console.log('✅ Created my player:', id);
                 } else {
                     this.createPlayer(players[id], false);
+                    console.log('➕ Added existing player:', id);
                 }
             });
         });
 
         // Receive game state
         this.socket.on('gameState', (gameState) => {
+            console.log('🎮 Received game state with', gameState.items.length, 'items');
             gameState.items.forEach((item) => {
                 this.createItem(item);
             });
         });
 
-        // Handle new player joining
+        // Handle new player joining - FIXED
         this.socket.on('newPlayer', (playerInfo) => {
-            this.createPlayer(playerInfo, false);
+            console.log('🆕 New player joined:', playerInfo.id);
+            // Only create if we don't already have this player
+            if (!this.players[playerInfo.id]) {
+                this.createPlayer(playerInfo, false);
+                console.log('✅ Created new player:', playerInfo.id);
+            } else {
+                console.log('⚠️ Player already exists:', playerInfo.id);
+            }
         });
 
         // Handle player movement
         this.socket.on('playerMoved', (playerInfo) => {
-            if (this.players[playerInfo.id]) {
+            if (this.players[playerInfo.id] && playerInfo.id !== this.socket.id) {
                 this.players[playerInfo.id].setPosition(playerInfo.x, playerInfo.y);
             }
         });
 
         // Handle player disconnection
         this.socket.on('playerDisconnected', (playerId) => {
+            console.log('👋 Player disconnected:', playerId);
             if (this.players[playerId]) {
                 this.players[playerId].destroy();
                 delete this.players[playerId];
                 this.updateUI();
+                console.log('🗑️ Removed player:', playerId);
             }
         });
 
-        // Handle item collection
+        // Handle item collection - IMPROVED
         this.socket.on('itemCollected', (data) => {
+            console.log('🪙 Item collected:', data.itemId, 'by player:', data.playerId);
             if (this.items[data.itemId]) {
+                // Add particle effect before destroying
+                this.createCoinEffect(this.items[data.itemId].x, this.items[data.itemId].y);
                 this.items[data.itemId].destroy();
                 delete this.items[data.itemId];
             }
-            this.createItem(data.newItem);
+            // Create new item
+            if (data.newItem) {
+                this.createItem(data.newItem);
+            }
         });
 
         // Handle score updates
         this.socket.on('scoreUpdate', (data) => {
             if (data.playerId === this.socket.id) {
                 document.getElementById('score').textContent = data.score;
+                console.log('📊 Score updated:', data.score);
             }
         });
     }
@@ -202,15 +231,49 @@ class GameScene extends Phaser.Scene {
         item.setDisplaySize(20, 20);
         item.setTint(0xFFD700); // Gold color
         item.itemId = itemData.id;
+        
+        // Make hitbox slightly larger for mobile
+        item.body.setSize(24, 24);
 
         this.items[itemData.id] = item;
 
-        // Add collision with my player
+        // Improved collision detection - works better cross-platform
         if (this.myPlayer) {
-            this.physics.add.overlap(this.myPlayer, item, () => {
-                this.socket.emit('collectItem', itemData.id);
+            // Remove any existing overlap for this item
+            this.physics.world.removeCollider(item);
+            
+            // Add new overlap detection
+            const overlap = this.physics.add.overlap(this.myPlayer, item, (player, collectedItem) => {
+                console.log('🎯 Collision detected! Item:', collectedItem.itemId);
+                
+                // Prevent double collection
+                if (this.items[collectedItem.itemId]) {
+                    this.socket.emit('collectItem', collectedItem.itemId);
+                    
+                    // Remove overlap to prevent duplicate triggers
+                    this.physics.world.removeCollider(overlap);
+                }
             });
         }
+    }
+
+    // Add visual feedback for coin collection
+    createCoinEffect(x, y) {
+        // Create sparkle effect
+        const particles = this.add.particles(x, y, 'coin', {
+            scale: { start: 0.3, end: 0 },
+            speed: { min: 50, max: 100 },
+            lifespan: 300,
+            quantity: 5,
+            tint: [0xFFD700, 0xFFF700, 0xFFFF00]
+        });
+        
+        // Clean up after animation
+        setTimeout(() => {
+            if (particles) {
+                particles.destroy();
+            }
+        }, 500);
     }
 
     update() {
@@ -242,25 +305,21 @@ class GameScene extends Phaser.Scene {
         // Apply velocity
         this.myPlayer.setVelocity(velocityX, velocityY);
 
-        // Send position updates (throttled)
+        // Send position updates (throttled for better mobile performance)
         const now = Date.now();
-        if (now - this.lastMoveTime > 16) { // ~60fps
-            this.socket.emit('playerMovement', {
-                x: this.myPlayer.x,
-                y: this.myPlayer.y
-            });
-            this.lastMoveTime = now;
+        if (now - this.lastMoveTime > 33) { // ~30fps for mobile efficiency
+            // Only send if player actually moved
+            if (Math.abs(velocityX) > 0 || Math.abs(velocityY) > 0) {
+                this.socket.emit('playerMovement', {
+                    x: this.myPlayer.x,
+                    y: this.myPlayer.y
+                });
+                this.lastMoveTime = now;
+            }
         }
 
-        // Update item collisions
-        Object.values(this.items).forEach(item => {
-            if (this.myPlayer && Phaser.Geom.Rectangle.Overlaps(
-                this.myPlayer.getBounds(),
-                item.getBounds()
-            )) {
-                this.socket.emit('collectItem', item.itemId);
-            }
-        });
+        // Remove the redundant collision detection - now handled in createItem
+        // This was causing double collection attempts and mobile issues
     }
 
     updateUI() {
