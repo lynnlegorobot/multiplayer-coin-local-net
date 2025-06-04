@@ -10,9 +10,24 @@ class GameScene extends Phaser.Scene {
     }
 
     preload() {
-        // Create simple colored rectangles for sprites
-        this.load.image('player', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
-        this.load.image('coin', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+        // Create simple colored rectangles for sprites using Phaser graphics
+        // This avoids data URI issues in deployed environments
+        
+        // Create player sprite
+        const playerGraphics = this.add.graphics();
+        playerGraphics.fillStyle(0x4CAF50); // Green color
+        playerGraphics.fillRect(0, 0, 32, 32);
+        playerGraphics.generateTexture('player', 32, 32);
+        playerGraphics.destroy();
+        
+        // Create coin sprite  
+        const coinGraphics = this.add.graphics();
+        coinGraphics.fillStyle(0xFFD700); // Gold color
+        coinGraphics.fillCircle(16, 16, 14);
+        coinGraphics.generateTexture('coin', 32, 32);
+        coinGraphics.destroy();
+        
+        console.log('✅ Sprites created using Phaser graphics generation');
     }
 
     create() {
@@ -33,6 +48,12 @@ class GameScene extends Phaser.Scene {
 
         // Update score display
         this.updateUI();
+        
+        // Signal that game has loaded successfully
+        console.log('🎮 Game scene created successfully');
+        if (window.gameLoadedCallback) {
+            window.gameLoadedCallback();
+        }
     }
 
     setupSocketEvents() {
