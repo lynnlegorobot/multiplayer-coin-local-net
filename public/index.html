@@ -261,13 +261,16 @@
         // QR Code functionality
         function showQR() {
             const currentUrl = window.location.href;
-            document.getElementById('gameUrl').textContent = currentUrl;
+            // Ensure we use the correct Vercel URL
+            const gameUrl = currentUrl.includes('vercel.app') ? currentUrl : 'https://muliplayer-phone.vercel.app/';
+            
+            document.getElementById('gameUrl').textContent = gameUrl;
             
             // Clear previous QR code
             document.getElementById('qrCode').innerHTML = '';
             
             // Generate QR code
-            QRCode.toCanvas(document.getElementById('qrCode'), currentUrl, {
+            QRCode.toCanvas(document.getElementById('qrCode'), gameUrl, {
                 width: 200,
                 margin: 2,
                 color: {
@@ -275,7 +278,12 @@
                     light: '#ffffff'
                 }
             }, function (error) {
-                if (error) console.error(error);
+                if (error) {
+                    console.error('QR Code error:', error);
+                    document.getElementById('qrCode').innerHTML = '<p style="color: red;">Failed to generate QR code</p>';
+                } else {
+                    console.log('✅ QR Code generated successfully');
+                }
             });
             
             document.getElementById('qrModal').style.display = 'flex';
@@ -292,26 +300,67 @@
             }
         });
         
+        // Enhanced loading and error handling
+        let loadingTimeout;
+        let gameLoaded = false;
+        
         // Hide loading screen once everything is loaded
         window.addEventListener('load', function() {
-            setTimeout(() => {
-                document.getElementById('loadingScreen').style.display = 'none';
-            }, 1000);
+            console.log('📦 Window loaded, checking for game...');
+            
+            // Set a timeout to check if game loaded
+            loadingTimeout = setTimeout(() => {
+                if (!gameLoaded) {
+                    console.error('❌ Game failed to load within 5 seconds');
+                    document.getElementById('loadingScreen').innerHTML = `
+                        <div style="text-align: center; color: #ff4444;">
+                            <h2>⚠️ Game Loading Issue</h2>
+                            <p>The game assets might not be loading properly</p>
+                            <p style="font-size: 12px; margin: 10px 0;">Check browser console for errors</p>
+                            <button onclick="location.reload()" style="padding: 10px 20px; margin: 5px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                🔄 Refresh
+                            </button>
+                            <button onclick="window.open('https://muliplayer-phone.vercel.app/', '_blank')" style="padding: 10px 20px; margin: 5px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                🌐 Open Direct Link
+                            </button>
+                        </div>
+                    `;
+                }
+            }, 5000);
         });
         
-        // Error handling
+        // Function to be called when game successfully loads
+        window.gameLoadedCallback = function() {
+            gameLoaded = true;
+            clearTimeout(loadingTimeout);
+            setTimeout(() => {
+                document.getElementById('loadingScreen').style.display = 'none';
+                console.log('✅ Game loaded successfully!');
+            }, 1000);
+        };
+        
+        // Enhanced error handling
         window.addEventListener('error', function(e) {
-            console.error('Game error:', e);
+            console.error('❌ JavaScript error:', e.error);
+            console.error('📍 Error location:', e.filename, 'line', e.lineno);
+            
+            clearTimeout(loadingTimeout);
             document.getElementById('loadingScreen').innerHTML = `
                 <div style="text-align: center; color: #ff4444;">
-                    <h2>⚠️ Loading Error</h2>
-                    <p>Try refreshing the page</p>
+                    <h2>⚠️ Game Error</h2>
+                    <p>${e.message}</p>
+                    <p style="font-size: 12px; margin: 10px 0;">Location: ${e.filename}:${e.lineno}</p>
                     <button onclick="location.reload()" style="padding: 10px 20px; margin-top: 10px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
                         🔄 Refresh
                     </button>
                 </div>
             `;
         });
+        
+        // Debug info
+        console.log('🌐 Current URL:', window.location.href);
+        console.log('📱 User Agent:', navigator.userAgent);
+        console.log('🔧 Debug mode enabled - check console for game loading info');
     </script>
     <script src="js/game-offline.js"></script>
 </body>
