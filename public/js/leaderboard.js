@@ -549,61 +549,33 @@ class LeaderboardManager {
 
     // Notify the game/server of name change
     notifyGameOfNameChange(newName) {
-        console.log('🎮 notifyGameOfNameChange called with:', newName);
+        console.log('🎮 LeaderboardManager: notifyGameOfNameChange called with:', newName);
         
-        // Update multiplayer game if running
+        // Dispatch a global event for GameScene to pick up for local player name update
+        window.dispatchEvent(new CustomEvent('localPlayerNameChangeRequest', {
+            detail: { newName: newName }
+        }));
+        console.log('🔔 Dispatched localPlayerNameChangeRequest event with new name:', newName);
+
+        // Still notify the server for other players
         if (window.game && window.game.scene && window.game.scene.scenes[0]) {
             const scene = window.game.scene.scenes[0];
-            console.log('🎮 Game scene found, checking for socket and player...');
-            
-            if (scene.socket && scene.myPlayer) {
-                console.log('🔌 Socket and player found, updating immediately...');
-                console.log('🆔 My socket ID:', scene.socket.id);
-                
-                // Update our own player info immediately
-                if (scene.playerInfo[scene.socket.id]) {
-                    const oldName = scene.playerInfo[scene.socket.id].name;
-                    scene.playerInfo[scene.socket.id].name = newName;
-                    console.log(`📝 Updated playerInfo: ${oldName} → ${newName}`);
-                }
-                
-                // Update our name display above character immediately - FORCE UPDATE
-                if (scene.playerNames[scene.socket.id]) {
-                    scene.playerNames[scene.socket.id].setText(newName);
-                    console.log('✅ IMMEDIATE: Updated floating name display to:', newName);
-                    
-                    // Force a visual refresh by temporarily scaling
-                    scene.playerNames[scene.socket.id].setScale(1.1);
-                    setTimeout(() => {
-                        if (scene.playerNames[scene.socket.id]) {
-                            scene.playerNames[scene.socket.id].setScale(1.0);
-                        }
-                    }, 100);
-                } else {
-                    console.error('❌ playerNames not found for socket ID:', scene.socket.id);
-                    console.log('🔍 Available playerNames:', Object.keys(scene.playerNames || {}));
-                }
-                
-                // Notify server of name change for other players (AFTER local update)
+            if (scene.socket) {
                 scene.socket.emit('nameChange', { newName: newName });
                 console.log('📤 Sent nameChange to server for other players');
             } else {
-                console.warn('⚠️ Socket or player not ready:', {
-                    hasSocket: !!scene.socket,
-                    hasPlayer: !!scene.myPlayer
-                });
+                console.warn('⚠️ LeaderboardManager: Socket not ready, cannot send nameChange to server.');
             }
         } else {
-            console.warn('⚠️ Game scene not found or not ready');
+            console.warn('⚠️ LeaderboardManager: Game scene not ready for server notification.');
         }
         
-        // Also update single-player if running
-        if (window.game && window.game.scene && window.game.scene.scenes[0] && window.gameMode === 'single-player') {
+        // Update single-player UI if that mode is active (no floating name to worry about)
+        if (window.gameMode === 'single-player' && window.game && window.game.scene && window.game.scene.scenes[0]) {
             const scene = window.game.scene.scenes[0];
-            // Update UI in single-player
             if (scene.updateUI) {
                 scene.updateUI();
-                console.log('✅ Updated single-player UI with new name:', newName);
+                console.log('✅ LeaderboardManager: Updated single-player UI with new name:', newName);
             }
         }
     }

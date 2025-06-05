@@ -1,5 +1,5 @@
 // Version tracking for debugging
-const GAME_VERSION = 'Multiplayer v2024.12.28.6 - Cleanup & Names';
+const GAME_VERSION = 'Multiplayer v2024.12.28.7 - Name Fix MK2';
 console.log('📋 Game Version:', GAME_VERSION);
 
 // Update version display in UI
@@ -77,6 +77,15 @@ class GameScene extends Phaser.Scene {
         
         // Add background pattern (same as single-player)
         this.createBackground();
+        
+        // Listen for local name change requests from LeaderboardManager
+        this.nameChangeEventListener = (event) => {
+            if (event.detail && typeof event.detail.newName === 'string') {
+                this.handleLocalPlayerNameUpdate(event.detail.newName);
+            }
+        };
+        window.addEventListener('localPlayerNameChangeRequest', this.nameChangeEventListener);
+        console.log('🎧 GameScene: Listening for localPlayerNameChangeRequest events.');
         
         // Signal that game has loaded successfully
         console.log('🎮 Game scene created successfully');
@@ -936,6 +945,64 @@ class GameScene extends Phaser.Scene {
         `;
         
         document.body.appendChild(modal);
+    }
+
+    // Handle local player name update from the custom event
+    handleLocalPlayerNameUpdate(newName) {
+        if (!this.socket || !this.myPlayer) {
+            console.warn('⚠️ GameScene: Cannot update local name, socket or player not ready.');
+            return;
+        }
+        
+        const playerId = this.socket.id;
+        console.log(`🎨 GameScene: Handling local name update for player ${playerId} to '${newName}'.`);
+
+        // 1. Update playerInfo (internal data store)
+        if (this.playerInfo[playerId]) {
+            this.playerInfo[playerId].name = newName;
+            console.log(`🧠 GameScene: Updated playerInfo[${playerId}].name to '${newName}'.`);
+        } else {
+            console.warn(`⚠️ GameScene: playerInfo for ${playerId} not found.`);
+        }
+
+        // 2. Update the Phaser Text object (the floating name tag)
+        if (this.playerNames[playerId]) {
+            this.playerNames[playerId].setText(newName);
+            console.log(`🏷️ GameScene: Updated floating name tag for ${playerId} to '${newName}'.`);
+
+            // Optional: A slight visual nudge to ensure Phaser re-renders if needed
+            this.playerNames[playerId].setAlpha(0.99); // Temporarily change alpha
+            this.time.delayedCall(50, () => { // Phaser's scene timer
+                if (this.playerNames && this.playerNames[playerId]) { // Check if still exists
+                    this.playerNames[playerId].setAlpha(1.0); // Restore alpha
+                }
+            });
+        } else {
+            console.error(`❌ GameScene: playerNames Text object for ${playerId} not found! Cannot update floating name.`);
+            console.log('🔍 Available playerNames keys:', Object.keys(this.playerNames || {}));
+        }
+        
+        // 3. Also update the HUD player name text (if it's managed by LeaderboardManager, it might already be updated)
+        // For safety, ensure the main HUD name also reflects this immediately.
+        const playerNameTextElement = document.getElementById('playerNameText');
+        if (playerNameTextElement) {
+            playerNameTextElement.textContent = newName;
+        }
+    }
+
+    // Cleanup event listener when scene shuts down (good practice)
+    shutdown() {
+        if (this.nameChangeEventListener) {
+            window.removeEventListener('localPlayerNameChangeRequest', this.nameChangeEventListener);
+            console.log('🔌 GameScene: Removed localPlayerNameChangeRequest event listener.');
+        }
+        // Any other cleanup for the scene
+    }
+
+    // Phaser 3 uses destroy for full cleanup when scene is stopped & removed
+    destroy() {
+        this.shutdown(); // Call shutdown for consistency if planning to reuse
+        super.destroy();
     }
 }
 
