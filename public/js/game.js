@@ -486,14 +486,21 @@ class GameScene extends Phaser.Scene {
                     }
                     
                     // Determine who should send the hit to prevent double damage
-                    // Use socket ID comparison for consistent, deterministic results
-                    // Only the player with the "higher" socket ID sends the hit
-                    if (now - this.lastHitTime > 1000 && this.socket.id > playerInfo.id) {
+                    // Capture velocities immediately since collision physics will change them
+                    const myVelocity = Math.sqrt(playerA.body.velocity.x ** 2 + playerA.body.velocity.y ** 2);
+                    const theirVelocity = Math.sqrt(playerB.body.velocity.x ** 2 + playerB.body.velocity.y ** 2);
+                    
+                    // Only send hit if I have more momentum (I'm the aggressor) OR if velocities are equal, use socket ID as tiebreaker
+                    const velocityThreshold = 1.0; // Small threshold to account for floating point precision
+                    const iAmAggressor = myVelocity > theirVelocity + velocityThreshold || 
+                                        (Math.abs(myVelocity - theirVelocity) <= velocityThreshold && this.socket.id > playerInfo.id);
+                    
+                    if (now - this.lastHitTime > 1000 && iAmAggressor) {
                         this.socket.emit('playerHit', { targetPlayerId: playerInfo.id });
                         this.lastHitTime = now;
-                        console.log(`⚔️ Hit sent to server - I'm the aggressor (my ID: ${this.socket.id} > their ID: ${playerInfo.id})`);
+                        console.log(`⚔️ Hit sent to server - I'm the aggressor (my velocity: ${myVelocity.toFixed(1)} vs their velocity: ${theirVelocity.toFixed(1)})`);
                     } else if (now - this.lastHitTime > 1000) {
-                        console.log(`🛡️ I'm the victim (my ID: ${this.socket.id} < their ID: ${playerInfo.id}) - not sending hit`);
+                        console.log(`🛡️ I'm the victim (my velocity: ${myVelocity.toFixed(1)} vs their velocity: ${theirVelocity.toFixed(1)}) - not sending hit`);
                     }
                 });
             }
@@ -527,14 +534,21 @@ class GameScene extends Phaser.Scene {
                     }
                     
                     // Determine who should send the hit to prevent double damage
-                    // Use socket ID comparison for consistent, deterministic results
-                    // Only the player with the "higher" socket ID sends the hit
-                    if (now - this.lastHitTime > 1000 && this.socket.id > playerId) {
+                    // Capture velocities immediately since collision physics will change them
+                    const myVelocity = Math.sqrt(playerA.body.velocity.x ** 2 + playerA.body.velocity.y ** 2);
+                    const theirVelocity = Math.sqrt(playerB.body.velocity.x ** 2 + playerB.body.velocity.y ** 2);
+                    
+                    // Only send hit if I have more momentum (I'm the aggressor) OR if velocities are equal, use socket ID as tiebreaker
+                    const velocityThreshold = 1.0; // Small threshold to account for floating point precision
+                    const iAmAggressor = myVelocity > theirVelocity + velocityThreshold || 
+                                        (Math.abs(myVelocity - theirVelocity) <= velocityThreshold && this.socket.id > playerId);
+                    
+                    if (now - this.lastHitTime > 1000 && iAmAggressor) {
                         this.socket.emit('playerHit', { targetPlayerId: playerId });
                         this.lastHitTime = now;
-                        console.log(`⚔️ Hit sent to server - I'm the aggressor (my ID: ${this.socket.id} > their ID: ${playerId})`);
+                        console.log(`⚔️ Hit sent to server - I'm the aggressor (my velocity: ${myVelocity.toFixed(1)} vs their velocity: ${theirVelocity.toFixed(1)})`);
                     } else if (now - this.lastHitTime > 1000) {
-                        console.log(`🛡️ I'm the victim (my ID: ${this.socket.id} < their ID: ${playerId}) - not sending hit`);
+                        console.log(`🛡️ I'm the victim (my velocity: ${myVelocity.toFixed(1)} vs their velocity: ${theirVelocity.toFixed(1)}) - not sending hit`);
                     }
                 });
             }
