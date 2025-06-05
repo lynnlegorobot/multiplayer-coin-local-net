@@ -1,3 +1,14 @@
+// Version tracking for debugging
+const GAME_VERSION = 'Multiplayer v2024.12.28.2';
+console.log('📋 Game Version:', GAME_VERSION);
+
+// Update version display in UI
+setTimeout(() => {
+    if (document.getElementById('gameVersion')) {
+        document.getElementById('gameVersion').textContent = GAME_VERSION;
+    }
+}, 1000);
+
 class GameScene extends Phaser.Scene {
     constructor() {
         super({ key: 'GameScene' });

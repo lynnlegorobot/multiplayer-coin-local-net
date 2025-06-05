@@ -1,5 +1,14 @@
 console.log('🎮 Game script loading...');
 
+// Version tracking for debugging
+const GAME_VERSION = 'Single-Player v2024.12.28.2';
+console.log('📋 Game Version:', GAME_VERSION);
+
+// Update version display in UI
+if (document.getElementById('gameVersion')) {
+    document.getElementById('gameVersion').textContent = GAME_VERSION;
+}
+
 class GameScene extends Phaser.Scene {
     constructor() {
         super({ key: 'GameScene' });

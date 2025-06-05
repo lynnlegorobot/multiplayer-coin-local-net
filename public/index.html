@@ -6,6 +6,12 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- Cache control for mobile browsers -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
     <title>Mobile Coin Collector Game</title>
     <style>
         * {
@@ -301,6 +307,11 @@
             <div id="scoreStatus" style="font-size: 10px; color: #90EE90; margin-top: 10px; pointer-events: auto;">
                 💾 Scores auto-save when you quit or disconnect
             </div>
+            
+            <!-- Version Display for debugging -->
+            <div id="versionDisplay" style="font-size: 8px; color: #888; margin-top: 5px; pointer-events: auto;">
+                v2024.12.28 - <span id="gameVersion">Loading...</span>
+            </div>
         </div>
         
         <button id="shareButton" onclick="showQR()">📱 Share QR</button>
@@ -590,6 +601,72 @@
         console.log('🔧 Touch support:', 'ontouchstart' in window ? 'Yes' : 'No');
         console.log('🤖 Mobile device:', /Mobile|Android|iPhone|iPad/.test(navigator.userAgent) ? 'Yes' : 'No');
         console.log('🔧 Debug mode enabled - check console for game loading info');
+        console.log('⏰ Cache timestamp:', Date.now());
+        console.log('🧠 Service Worker:', 'serviceWorker' in navigator ? 'Supported' : 'Not supported');
+        
+        // Clear any cached data for mobile
+        if ('caches' in window) {
+            console.log('🗑️ Clearing cache for fresh game load...');
+            caches.keys().then(function(names) {
+                for (let name of names) {
+                    caches.delete(name);
+                }
+                console.log('✅ Cache cleared');
+            });
+        }
+        
+        // Force reload function for debugging
+        window.forceClearCacheAndReload = function() {
+            console.log('🔄 Force clearing all caches and reloading...');
+            
+            // Clear localStorage
+            localStorage.clear();
+            console.log('🗑️ localStorage cleared');
+            
+            // Clear sessionStorage
+            sessionStorage.clear();
+            console.log('🗑️ sessionStorage cleared');
+            
+            // Clear caches
+            if ('caches' in window) {
+                caches.keys().then(function(names) {
+                    for (let name of names) {
+                        caches.delete(name);
+                    }
+                    console.log('🗑️ All caches cleared');
+                    // Hard reload
+                    window.location.reload(true);
+                });
+            } else {
+                // Hard reload
+                window.location.reload(true);
+            }
+        };
+        
+        // Add cache clear button for debugging (mobile-friendly)
+        setTimeout(() => {
+            const debugBtn = document.createElement('button');
+            debugBtn.innerHTML = '🗑️ Clear Cache';
+            debugBtn.style.cssText = `
+                position: fixed; bottom: 10px; left: 10px; z-index: 9999;
+                background: #ff4444; color: white; border: none; padding: 8px 12px;
+                border-radius: 5px; font-size: 12px; cursor: pointer;
+                opacity: 0.7; min-height: 40px;
+            `;
+            debugBtn.onclick = window.forceClearCacheAndReload;
+            debugBtn.ontouchend = function(e) {
+                e.preventDefault();
+                window.forceClearCacheAndReload();
+            };
+            document.body.appendChild(debugBtn);
+            
+            // Hide after 10 seconds unless there's an error
+            setTimeout(() => {
+                if (gameLoaded) {
+                    debugBtn.style.display = 'none';
+                }
+            }, 10000);
+        }, 2000);
         
         // Test QR button functionality
         console.log('🔍 Testing QR button setup...');
@@ -663,7 +740,7 @@
                 
                 // Load environment configuration first
                 const configScript = document.createElement('script');
-                configScript.src = '/config.js';
+                configScript.src = '/config.js?v=' + Date.now(); // Cache busting
                 configScript.onload = function() {
                     console.log('✅ Environment config loaded');
                     loadSupabaseAndLeaderboard();
@@ -687,7 +764,7 @@
                     
                     // Load leaderboard manager
                     const leaderboardScript = document.createElement('script');
-                    leaderboardScript.src = 'js/leaderboard.js';
+                    leaderboardScript.src = 'js/leaderboard.js?v=' + Date.now(); // Cache busting
                     leaderboardScript.onload = function() {
                         console.log('✅ Leaderboard manager loaded');
                         loadSoundEffectsAndGame();
@@ -708,7 +785,7 @@
             function loadSoundEffectsAndGame() {
                 // Load sound effects
                 const soundScript = document.createElement('script');
-                soundScript.src = 'js/sound-effects.js';
+                soundScript.src = 'js/sound-effects.js?v=' + Date.now(); // Cache busting
                 soundScript.onload = function() {
                     console.log('✅ Sound effects loaded');
                     loadGameScript();
@@ -723,7 +800,7 @@
             function loadGameScript() {
                 // Create and load the game script
                 const script = document.createElement('script');
-                script.src = gameScript;
+                script.src = gameScript + '?v=' + Date.now(); // Cache busting
                 script.onload = function() {
                     console.log('✅ Game script loaded successfully:', gameScript);
                 };
@@ -734,7 +811,7 @@
                         console.log('🔄 Falling back to single-player version...');
                         window.gameMode = 'single-player';
                         const fallbackScript = document.createElement('script');
-                        fallbackScript.src = 'js/game-offline.js';
+                        fallbackScript.src = 'js/game-offline.js?v=' + Date.now(); // Cache busting
                         fallbackScript.onload = function() {
                             console.log('✅ Fallback single-player script loaded');
                         };
