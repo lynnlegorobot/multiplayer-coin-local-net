@@ -34,6 +34,12 @@ class GameScene extends Phaser.Scene {
         // Track movement state for collision determination
         this.isMoving = false;
         this.lastMovementTime = 0;
+        
+        // CLEANUP TRACKING - Add these to track what needs cleanup
+        this.itemOverlaps = {}; // Track overlap detectors for coins
+        this.playerColliders = {}; // Track collision detectors for players
+        this.activeTweens = []; // Track active tweens for cleanup
+        this.activeEffects = []; // Track active effect objects
     }
 
     preload() {
@@ -209,22 +215,11 @@ class GameScene extends Phaser.Scene {
                     window.soundManager.playPlayerLeave();
                 }
                 
-                this.players[playerId].destroy();
-                delete this.players[playerId];
-                
-                // Clean up player name
-                if (this.playerNames[playerId]) {
-                    this.playerNames[playerId].destroy();
-                    delete this.playerNames[playerId];
-                }
-                
-                // Clean up player info
-                if (this.playerInfo[playerId]) {
-                    delete this.playerInfo[playerId];
-                }
+                // ENHANCED CLEANUP - Remove all traces of this player
+                this.cleanupPlayer(playerId);
                 
                 this.updateUI();
-                console.log('🗑️ Removed player and cleaned up:', playerId);
+                console.log('🗑️ Completely cleaned up player:', playerId);
             }
         });
 
@@ -257,10 +252,17 @@ class GameScene extends Phaser.Scene {
                     }
                 }
                 
-                this.items[data.itemId].destroy();
-                delete this.items[data.itemId];
+                // ENHANCED CLEANUP - Remove collision detector before destroying item
+                this.cleanupItem(data.itemId);
             } else {
                 console.log('⚠️ Item already removed or not found:', data.itemId);
+                
+                // Clean up any lingering collision detectors for this item
+                if (this.itemOverlaps[data.itemId]) {
+                    this.physics.world.removeCollider(this.itemOverlaps[data.itemId]);
+                    delete this.itemOverlaps[data.itemId];
+                    console.log('🧹 Cleaned up lingering overlap detector for:', data.itemId);
+                }
                 
                 // Show effect at the collection location if provided
                 if (data.collectedAt) {
@@ -351,12 +353,9 @@ class GameScene extends Phaser.Scene {
                 
                 // Play sound and clean up
                 if (window.soundManager) window.soundManager.playEliminated();
-                player.destroy();
-                delete this.players[data.playerId];
-                if (this.playerNames[data.playerId]) {
-                    this.playerNames[data.playerId].destroy();
-                    delete this.playerNames[data.playerId];
-                }
+                
+                // ENHANCED CLEANUP - Remove all traces of this player
+                this.cleanupPlayer(data.playerId);
 
                 // If it's me, show the elimination screen
                 if (data.playerId === this.socket.id) {
@@ -509,7 +508,7 @@ class GameScene extends Phaser.Scene {
             
             // If we already have our player, add collision with this new player
             if (this.myPlayer) {
-                this.physics.add.collider(this.myPlayer, player, (playerA, playerB) => {
+                const collider = this.physics.add.collider(this.myPlayer, player, (playerA, playerB) => {
                     // Add collision effects with throttling
                     const now = Date.now();
                     if (now - this.lastCollisionSound > 500) { // Max once per 500ms
@@ -545,6 +544,9 @@ class GameScene extends Phaser.Scene {
                         console.log(`🛡️ I'm the victim (recently moved: ${myRecentlyMoved}) - not sending hit`);
                     }
                 });
+                
+                // STORE COLLIDER FOR CLEANUP
+                this.playerColliders[playerInfo.id] = collider;
             }
         }
 
@@ -561,7 +563,7 @@ class GameScene extends Phaser.Scene {
         
         Object.keys(this.players).forEach(playerId => {
             if (playerId !== this.socket.id && this.players[playerId]) {
-                this.physics.add.collider(this.myPlayer, this.players[playerId], (playerA, playerB) => {
+                const collider = this.physics.add.collider(this.myPlayer, this.players[playerId], (playerA, playerB) => {
                     // Add collision effects with throttling
                     const now = Date.now();
                     if (now - this.lastCollisionSound > 500) { // Max once per 500ms
@@ -597,6 +599,9 @@ class GameScene extends Phaser.Scene {
                         console.log(`🛡️ I'm the victim (recently moved: ${myRecentlyMoved}) - not sending hit`);
                     }
                 });
+                
+                // STORE COLLIDER FOR CLEANUP
+                this.playerColliders[playerId] = collider;
             }
         });
         
@@ -604,11 +609,10 @@ class GameScene extends Phaser.Scene {
     }
 
     createItem(itemData) {
-        // Remove any existing item with same ID first
+        // Remove any existing item with same ID first (with proper cleanup)
         if (this.items[itemData.id]) {
             console.log('🔄 Replacing existing item:', itemData.id);
-            this.items[itemData.id].destroy();
-            delete this.items[itemData.id];
+            this.cleanupItem(itemData.id);
         }
         
         const item = this.physics.add.sprite(itemData.x, itemData.y, 'coin');
@@ -621,12 +625,15 @@ class GameScene extends Phaser.Scene {
         
         // Add fade-in animation like single-player
         item.setAlpha(0);
-        this.tweens.add({
+        const fadeInTween = this.tweens.add({
             targets: item,
             alpha: 1,
             duration: 500,
             ease: 'Power2'
         });
+        
+        // TRACK TWEEN FOR CLEANUP
+        this.activeTweens.push(fadeInTween);
 
         this.items[itemData.id] = item;
 
@@ -643,15 +650,15 @@ class GameScene extends Phaser.Scene {
                     console.log('📤 Sending collect request for:', collectedItem.itemId);
                     this.socket.emit('collectItem', collectedItem.itemId);
                     
-                    // Immediately remove the overlap to prevent duplicate triggers
-                    this.physics.world.removeCollider(overlap);
-                    
-                    // Temporarily disable the item body to prevent multiple collections
+                    // Immediately disable the item body to prevent multiple collections
                     collectedItem.body.enable = false;
                 } else {
                     console.log('⚠️ Item already collected, ignoring collision');
                 }
             });
+            
+            // STORE OVERLAP DETECTOR FOR CLEANUP
+            this.itemOverlaps[itemData.id] = overlap;
         }
     }
 
@@ -669,15 +676,26 @@ class GameScene extends Phaser.Scene {
                 particle.x = x;
                 particle.y = y;
 
-                this.tweens.add({
+                // TRACK PARTICLE FOR CLEANUP
+                this.activeEffects.push(particle);
+
+                const particleTween = this.tweens.add({
                     targets: particle,
                     x: x + Phaser.Math.Between(-50, 50),
                     y: y + Phaser.Math.Between(-50, 50),
                     alpha: 0,
                     duration: 300,
                     ease: 'Power2',
-                    onComplete: () => particle.destroy()
+                    onComplete: () => {
+                        particle.destroy();
+                        // Remove from tracking
+                        const index = this.activeEffects.indexOf(particle);
+                        if (index > -1) this.activeEffects.splice(index, 1);
+                    }
                 });
+                
+                // TRACK TWEEN FOR CLEANUP
+                this.activeTweens.push(particleTween);
             }
 
             // Show score popup
@@ -687,14 +705,25 @@ class GameScene extends Phaser.Scene {
                 color: '#FFD700'
             }).setOrigin(0.5);
 
-            this.tweens.add({
+            // TRACK SCORE TEXT FOR CLEANUP
+            this.activeEffects.push(scoreText);
+
+            const textTween = this.tweens.add({
                 targets: scoreText,
                 y: y - 60,
                 alpha: 0,
                 duration: 800,
                 ease: 'Power2',
-                onComplete: () => scoreText.destroy()
+                onComplete: () => {
+                    scoreText.destroy();
+                    // Remove from tracking
+                    const index = this.activeEffects.indexOf(scoreText);
+                    if (index > -1) this.activeEffects.splice(index, 1);
+                }
             });
+            
+            // TRACK TWEEN FOR CLEANUP
+            this.activeTweens.push(textTween);
         } catch (error) {
             console.error('❌ Error creating collection effect:', error);
         }
@@ -1028,18 +1057,21 @@ class GameScene extends Phaser.Scene {
         player.setVisible(false);
 
         // 3. After a delay, move and reveal the player
-        this.time.delayedCall(1000, () => {
+        const respawnTimer = this.time.delayedCall(1000, () => {
             if (player.active) { // Check if player hasn't been destroyed (e.g., by disconnection)
                 player.setPosition(newX, newY);
                 player.setAlpha(0);
                 player.setVisible(true);
 
                 // Fade them back in
-                this.tweens.add({
+                const fadeInTween = this.tweens.add({
                     targets: player,
                     alpha: 1,
                     duration: 500
                 });
+                
+                // TRACK TWEEN FOR CLEANUP
+                this.activeTweens.push(fadeInTween);
             }
         });
     }
@@ -1087,13 +1119,119 @@ class GameScene extends Phaser.Scene {
         }
     }
 
+    // ENHANCED CLEANUP FUNCTIONS
+    
+    // Clean up a specific player completely
+    cleanupPlayer(playerId) {
+        console.log('🧹 Starting comprehensive cleanup for player:', playerId);
+        
+        // Remove collision detectors for this player
+        if (this.playerColliders[playerId]) {
+            this.physics.world.removeCollider(this.playerColliders[playerId]);
+            delete this.playerColliders[playerId];
+            console.log('🗑️ Removed collider for player:', playerId);
+        }
+        
+        // Destroy player sprite
+        if (this.players[playerId]) {
+            this.players[playerId].destroy();
+            delete this.players[playerId];
+            console.log('🗑️ Destroyed player sprite:', playerId);
+        }
+        
+        // Clean up player name
+        if (this.playerNames[playerId]) {
+            this.playerNames[playerId].destroy();
+            delete this.playerNames[playerId];
+            console.log('🗑️ Destroyed player name:', playerId);
+        }
+        
+        // Clean up player info
+        if (this.playerInfo[playerId]) {
+            delete this.playerInfo[playerId];
+            console.log('🗑️ Removed player info:', playerId);
+        }
+        
+        console.log('✅ Player cleanup complete:', playerId);
+    }
+    
+    // Clean up a specific item completely
+    cleanupItem(itemId) {
+        console.log('🧹 Starting comprehensive cleanup for item:', itemId);
+        
+        // Remove overlap detector for this item
+        if (this.itemOverlaps[itemId]) {
+            this.physics.world.removeCollider(this.itemOverlaps[itemId]);
+            delete this.itemOverlaps[itemId];
+            console.log('🗑️ Removed overlap detector for item:', itemId);
+        }
+        
+        // Destroy item sprite
+        if (this.items[itemId]) {
+            this.items[itemId].destroy();
+            delete this.items[itemId];
+            console.log('🗑️ Destroyed item sprite:', itemId);
+        }
+        
+        console.log('✅ Item cleanup complete:', itemId);
+    }
+    
+    // Clean up all active tweens and effects (useful for preventing memory leaks)
+    cleanupTweensAndEffects() {
+        console.log('🧹 Cleaning up active tweens and effects...');
+        
+        // Clean up tracked tweens
+        this.activeTweens.forEach(tween => {
+            if (tween && tween.remove) {
+                tween.remove();
+            }
+        });
+        this.activeTweens = [];
+        
+        // Clean up tracked effects
+        this.activeEffects.forEach(effect => {
+            if (effect && effect.destroy) {
+                effect.destroy();
+            }
+        });
+        this.activeEffects = [];
+        
+        console.log('✅ Tweens and effects cleanup complete');
+    }
+    
+    // Global cleanup for when leaving the game or resetting
+    performGlobalCleanup() {
+        console.log('🧹 Performing global cleanup...');
+        
+        // Clean up all players
+        Object.keys(this.players).forEach(playerId => {
+            if (playerId !== this.socket.id) { // Don't clean up own player
+                this.cleanupPlayer(playerId);
+            }
+        });
+        
+        // Clean up all items
+        Object.keys(this.items).forEach(itemId => {
+            this.cleanupItem(itemId);
+        });
+        
+        // Clean up tweens and effects
+        this.cleanupTweensAndEffects();
+        
+        console.log('✅ Global cleanup complete');
+    }
+
     // Cleanup event listener when scene shuts down (good practice)
     shutdown() {
         if (this.nameChangeEventListener) {
             window.removeEventListener('localPlayerNameChangeRequest', this.nameChangeEventListener);
             console.log('🔌 GameScene: Removed localPlayerNameChangeRequest event listener.');
         }
-        // Any other cleanup for the scene
+        
+        // Perform comprehensive cleanup
+        this.performGlobalCleanup();
+        
+        console.log('🔌 GameScene shutdown complete');
     }
 
     // Phaser 3 uses destroy for full cleanup when scene is stopped & removed

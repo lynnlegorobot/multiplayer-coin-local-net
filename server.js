@@ -43,7 +43,7 @@ const gameState = {
 const PLAYER_TIMEOUT = 3600000; // 1 hour of inactivity (3,600,000 ms)
 const CLEANUP_INTERVAL = 600000; // Check every 1 minute.
 
-// Player cleanup function
+// Enhanced cleanup functions
 function cleanupInactivePlayers() {
     const now = Date.now();
     let removedCount = 0;
@@ -65,9 +65,62 @@ function cleanupInactivePlayers() {
     }
 }
 
-// Start cleanup timer
+// Cleanup function for orphaned/stale items
+function cleanupStaleItems() {
+    const now = Date.now();
+    const MAX_ITEM_AGE = 300000; // 5 minutes
+    let removedCount = 0;
+    
+    // Add timestamp to items if they don't have one
+    gameState.items.forEach(item => {
+        if (!item.createdAt) {
+            item.createdAt = now;
+        }
+    });
+    
+    // Remove items that are too old or if we have too many
+    const initialCount = gameState.items.length;
+    
+    // First, remove old items
+    gameState.items = gameState.items.filter(item => {
+        if (now - item.createdAt > MAX_ITEM_AGE) {
+            removedCount++;
+            return false;
+        }
+        return true;
+    });
+    
+    // Then, if we still have too many, remove oldest ones
+    if (gameState.items.length > gameState.maxItems) {
+        gameState.items.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+        const excess = gameState.items.length - gameState.maxItems;
+        gameState.items.splice(0, excess);
+        removedCount += excess;
+    }
+    
+    if (removedCount > 0) {
+        console.log(`🧹 Cleaned up ${removedCount} stale items. Items: ${initialCount} → ${gameState.items.length}`);
+        
+        // Notify all clients to refresh their item state
+        io.emit('gameState', { items: gameState.items });
+    }
+}
+
+// Enhanced generate item function with timestamp
+function generateItemWithTimestamp() {
+    return {
+        id: Math.random().toString(36).substr(2, 9),
+        x: Math.random() * 1150 + 50,
+        y: Math.random() * 850 + 50,
+        type: 'coin',
+        createdAt: Date.now()
+    };
+}
+
+// Start cleanup timers
 setInterval(cleanupInactivePlayers, CLEANUP_INTERVAL);
-console.log(`🧹 Player cleanup system started (timeout: ${PLAYER_TIMEOUT/1000}s, check interval: ${CLEANUP_INTERVAL/1000}s)`);
+setInterval(cleanupStaleItems, CLEANUP_INTERVAL); // Run item cleanup alongside player cleanup
+console.log(`🧹 Enhanced cleanup system started (timeout: ${PLAYER_TIMEOUT/1000}s, check interval: ${CLEANUP_INTERVAL/1000}s)`);
 
 // Generate random items on the map (matching client bounds)
 function generateItem() {
@@ -79,9 +132,9 @@ function generateItem() {
     };
 }
 
-// Initialize some items
+// Initialize some items with timestamps
 for (let i = 0; i < gameState.maxItems; i++) {
-    gameState.items.push(generateItem());
+    gameState.items.push(generateItemWithTimestamp());
 }
 
 function hslToRgb(h, s, l){
@@ -191,7 +244,7 @@ io.on('connection', (socket) => {
             
             // Generate new item only 70% of the time (reduced spawn rate)
             if (Math.random() < 0.7) {
-                const newItem = generateItem();
+                const newItem = generateItemWithTimestamp();
                 gameState.items.push(newItem);
                 
                 console.log(`🆕 Generated new item: ${newItem.id} at (${newItem.x.toFixed(1)}, ${newItem.y.toFixed(1)})`);
