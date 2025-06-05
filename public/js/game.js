@@ -61,6 +61,15 @@ class GameScene extends Phaser.Scene {
         if (window.gameLoadedCallback) {
             window.gameLoadedCallback();
         }
+        
+        // Play game start sound
+        if (window.soundManager) {
+            window.soundManager.playGameStart();
+            // Start ambient background hum
+            setTimeout(() => {
+                window.soundManager.startAmbientHum();
+            }, 2000);
+        }
     }
 
     setupSocketEvents() {
@@ -114,6 +123,11 @@ class GameScene extends Phaser.Scene {
             if (!this.players[playerInfo.id]) {
                 this.createPlayer(playerInfo, false);
                 console.log('✅ Created new player:', playerInfo.id);
+                
+                // Play player join sound
+                if (window.soundManager) {
+                    window.soundManager.playPlayerJoin();
+                }
             } else {
                 console.log('⚠️ Player already exists:', playerInfo.id);
             }
@@ -127,6 +141,11 @@ class GameScene extends Phaser.Scene {
                 if (playerInfo.rotation !== undefined) {
                     this.players[playerInfo.id].setRotation(playerInfo.rotation);
                 }
+                
+                // Update player name position
+                if (this.playerNames[playerInfo.id]) {
+                    this.playerNames[playerInfo.id].setPosition(playerInfo.x, playerInfo.y - 35);
+                }
             }
         });
 
@@ -134,6 +153,11 @@ class GameScene extends Phaser.Scene {
         this.socket.on('playerDisconnected', (playerId) => {
             console.log('👋 Player disconnected:', playerId);
             if (this.players[playerId]) {
+                // Play player leave sound
+                if (window.soundManager) {
+                    window.soundManager.playPlayerLeave();
+                }
+                
                 this.players[playerId].destroy();
                 delete this.players[playerId];
                 
@@ -167,9 +191,19 @@ class GameScene extends Phaser.Scene {
                 if (isMyCollection) {
                     // Add particle effect and screen shake for my collection
                     this.createCoinEffect(this.items[data.itemId].x, this.items[data.itemId].y);
+                    
+                    // Play coin collection sound
+                    if (window.soundManager) {
+                        window.soundManager.playCoinCollect();
+                    }
                 } else {
                     // For opponent collections, just show a subtle visual indicator
                     this.createOpponentCollectionEffect(this.items[data.itemId].x, this.items[data.itemId].y);
+                    
+                    // Play subtle opponent collection sound
+                    if (window.soundManager) {
+                        window.soundManager.playOpponentCollect();
+                    }
                 }
                 
                 this.items[data.itemId].destroy();
@@ -181,8 +215,14 @@ class GameScene extends Phaser.Scene {
                 if (data.collectedAt) {
                     if (isMyCollection) {
                         this.createCoinEffect(data.collectedAt.x, data.collectedAt.y);
+                        if (window.soundManager) {
+                            window.soundManager.playCoinCollect();
+                        }
                     } else {
                         this.createOpponentCollectionEffect(data.collectedAt.x, data.collectedAt.y);
+                        if (window.soundManager) {
+                            window.soundManager.playOpponentCollect();
+                        }
                     }
                 }
             }
@@ -197,9 +237,17 @@ class GameScene extends Phaser.Scene {
         // Handle score updates - ENHANCED
         this.socket.on('scoreUpdate', (data) => {
             if (data.playerId === this.socket.id) {
+                const oldScore = this.score;
                 this.score = data.score;
                 document.getElementById('score').textContent = data.score;
                 console.log('📊 Score updated:', data.score);
+                
+                // Play score milestone sound for significant achievements
+                if (data.score > 0 && data.score % 50 === 0 && data.score > oldScore) {
+                    if (window.soundManager) {
+                        window.soundManager.playScoreMilestone(data.score);
+                    }
+                }
                 
                 // Show rank achievement for significant scores
                 if (data.score > 0 && data.score % 100 === 0 && window.leaderboardManager) {

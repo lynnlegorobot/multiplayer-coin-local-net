@@ -268,25 +268,32 @@
             <!-- Game Control Buttons -->
             <div style="margin-top: 15px; pointer-events: auto; display: flex; gap: 10px; flex-wrap: wrap;">
                 <button id="quitBtn" 
-                        onclick="quitGame()" 
-                        ontouchend="event.preventDefault(); quitGame();"
+                        onclick="playButtonSound(); quitGame()" 
+                        ontouchend="event.preventDefault(); playButtonSound(); quitGame();"
                         style="padding: 8px 15px; background: #f44336; color: white; border: none; 
                                border-radius: 5px; cursor: pointer; font-size: 12px; min-height: 40px; min-width: 100px;">
                     🚪 Quit & Save Score
                 </button>
                 <button id="leaderboardBtn" 
-                        onclick="showFullLeaderboard()" 
-                        ontouchend="event.preventDefault(); showFullLeaderboard();"
+                        onclick="playButtonSound(); showFullLeaderboard()" 
+                        ontouchend="event.preventDefault(); playButtonSound(); showFullLeaderboard();"
                         style="padding: 8px 15px; background: #2196F3; color: white; border: none; 
                                border-radius: 5px; cursor: pointer; font-size: 12px; min-height: 40px; min-width: 100px;">
                     🏆 View Leaderboard
                 </button>
                 <button id="nameBtn" 
-                        onclick="showNameCustomization()" 
-                        ontouchend="event.preventDefault(); showNameCustomization();"
+                        onclick="playButtonSound(); showNameCustomization()" 
+                        ontouchend="event.preventDefault(); playButtonSound(); showNameCustomization();"
                         style="padding: 8px 15px; background: #4CAF50; color: white; border: none; 
                                border-radius: 5px; cursor: pointer; font-size: 12px; min-height: 40px; min-width: 80px;">
                     ✏️ Name
+                </button>
+                <button id="soundBtn" 
+                        onclick="playButtonSound(); toggleSound()" 
+                        ontouchend="event.preventDefault(); playButtonSound(); toggleSound();"
+                        style="padding: 8px 15px; background: #9C27B0; color: white; border: none; 
+                               border-radius: 5px; cursor: pointer; font-size: 12px; min-height: 40px; min-width: 60px;">
+                    🔊 Sound
                 </button>
             </div>
             
@@ -663,12 +670,12 @@
                 };
                 configScript.onerror = function() {
                     console.warn('⚠️ Environment config failed to load - continuing without Supabase');
-                    loadGameScript();
+                    loadSoundEffectsAndGame();
                 };
                 document.head.appendChild(configScript);
             } else {
                 // Single-player doesn't need Supabase
-                loadGameScript();
+                loadSoundEffectsAndGame();
             }
             
             function loadSupabaseAndLeaderboard() {
@@ -683,19 +690,34 @@
                     leaderboardScript.src = 'js/leaderboard.js';
                     leaderboardScript.onload = function() {
                         console.log('✅ Leaderboard manager loaded');
-                        loadGameScript();
+                        loadSoundEffectsAndGame();
                     };
                     leaderboardScript.onerror = function() {
                         console.warn('⚠️ Leaderboard script failed to load');
-                        loadGameScript();
+                        loadSoundEffectsAndGame();
                     };
                     document.head.appendChild(leaderboardScript);
                 };
                 supabaseScript.onerror = function() {
                     console.warn('⚠️ Supabase client failed to load - continuing without leaderboard');
-                    loadGameScript();
+                    loadSoundEffectsAndGame();
                 };
                 document.head.appendChild(supabaseScript);
+            }
+            
+            function loadSoundEffectsAndGame() {
+                // Load sound effects
+                const soundScript = document.createElement('script');
+                soundScript.src = 'js/sound-effects.js';
+                soundScript.onload = function() {
+                    console.log('✅ Sound effects loaded');
+                    loadGameScript();
+                };
+                soundScript.onerror = function() {
+                    console.warn('⚠️ Sound effects failed to load - continuing without sound');
+                    loadGameScript();
+                };
+                document.head.appendChild(soundScript);
             }
             
             function loadGameScript() {
@@ -724,6 +746,24 @@
         })();
     </script>
     <script>
+        // Sound effect functions
+        function playButtonSound() {
+            if (window.soundManager) {
+                window.soundManager.playButtonClick();
+            }
+        }
+        
+        function toggleSound() {
+            if (window.soundManager) {
+                const isEnabled = window.soundManager.toggle();
+                const soundBtn = document.getElementById('soundBtn');
+                if (soundBtn) {
+                    soundBtn.innerHTML = isEnabled ? '🔊 Sound' : '🔇 Muted';
+                    soundBtn.style.background = isEnabled ? '#9C27B0' : '#666';
+                }
+            }
+        }
+        
         // Game control functions
         function quitGame() {
             console.log('🚪 Player is quitting the game...');
@@ -768,7 +808,7 @@
         
         // Enhanced mobile button handling
         function setupMobileButtons() {
-            const buttons = ['quitBtn', 'leaderboardBtn', 'nameBtn'];
+            const buttons = ['quitBtn', 'leaderboardBtn', 'nameBtn', 'soundBtn'];
             
             buttons.forEach(buttonId => {
                 const button = document.getElementById(buttonId);
@@ -785,6 +825,9 @@
                         this.style.opacity = '1';
                         console.log('📱 Touch end on', buttonId);
                         
+                        // Play button sound first
+                        playButtonSound();
+                        
                         // Trigger the appropriate function
                         switch(buttonId) {
                             case 'quitBtn':
@@ -795,6 +838,9 @@
                                 break;
                             case 'nameBtn':
                                 showNameCustomization();
+                                break;
+                            case 'soundBtn':
+                                toggleSound();
                                 break;
                         }
                     });
