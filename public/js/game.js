@@ -1,5 +1,5 @@
 // Version tracking for debugging
-const GAME_VERSION = 'Multiplayer v2024.12.28.5 - Mobile UX';
+const GAME_VERSION = 'Multiplayer v2024.12.28.6 - Cleanup & Names';
 console.log('📋 Game Version:', GAME_VERSION);
 
 // Update version display in UI
@@ -29,6 +29,7 @@ class GameScene extends Phaser.Scene {
         this.coinsToLife = 100;
         this.isKnockedBack = false;
         this.knockbackVelocity = { x: 0, y: 0 };
+        this.lastHeartbeat = 0;
     }
 
     preload() {
@@ -429,15 +430,16 @@ class GameScene extends Phaser.Scene {
 
         this.players[playerInfo.id] = player;
         
-        // Store player info
+        // Store player info with proper name handling
+        const playerName = playerInfo.name || window.leaderboardManager?.playerName || 'Anonymous';
         this.playerInfo[playerInfo.id] = {
-            name: playerInfo.name || window.leaderboardManager?.playerName || 'Anonymous',
+            name: playerName,
             score: 0
         };
         
-        // Add name text above player
-        this.playerNames[playerInfo.id] = this.add.text(playerInfo.x, playerInfo.y - 30, 
-            this.playerInfo[playerInfo.id].name, {
+        // Add name text above player with better positioning
+        this.playerNames[playerInfo.id] = this.add.text(playerInfo.x, playerInfo.y - 35, 
+            playerName, {
             fontSize: '12px',
             color: '#ffffff',
             stroke: '#000000',
@@ -449,12 +451,14 @@ class GameScene extends Phaser.Scene {
             // Smooth camera following like single-player
             this.cameras.main.startFollow(player, true, 0.05, 0.05);
             this.cameras.main.setZoom(1.2);
-            console.log('✅ Created my player:', this.playerInfo[playerInfo.id].name);
+            console.log('✅ Created my player with name:', playerName);
+            console.log('🆔 My socket ID:', this.socket.id);
+            console.log('📝 Player name object created:', this.playerNames[playerInfo.id] ? 'SUCCESS' : 'FAILED');
             
             // Set up collisions with other players AFTER creating my player
             this.setupPlayerCollisions();
         } else {
-            console.log('👤 Other player joined:', this.playerInfo[playerInfo.id].name);
+            console.log('👤 Other player joined:', playerName);
             
             // If we already have our player, add collision with this new player
             if (this.myPlayer) {
@@ -724,6 +728,12 @@ class GameScene extends Phaser.Scene {
             };
             this.socket.emit('playerMovement', playerData);
             this.lastMoveTime = now;
+        }
+        
+        // Send periodic heartbeat to prevent cleanup (every 5 seconds)
+        if (!this.lastHeartbeat || now - this.lastHeartbeat > 5000) {
+            this.socket.emit('heartbeat');
+            this.lastHeartbeat = now;
         }
     }
 

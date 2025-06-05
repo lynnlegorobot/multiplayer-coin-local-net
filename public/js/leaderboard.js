@@ -174,11 +174,18 @@ class LeaderboardManager {
         if (input) {
             const newName = input.value.trim();
             if (newName && newName.length >= 2) {
+                const oldName = this.playerName;
                 this.playerName = newName;
                 localStorage.setItem('playerName', newName);
                 this.updatePlayerNameDisplay();
-                this.notifyGameOfNameChange(newName);
+                
                 console.log('✅ Welcome name saved:', newName);
+                console.log('🔄 Notifying game of welcome name change immediately...');
+                
+                // IMMEDIATE local update - don't wait for server
+                this.notifyGameOfNameChange(newName);
+                
+                console.log('📤 Welcome name change processed locally');
             }
         }
     }
@@ -286,11 +293,18 @@ class LeaderboardManager {
         if (input) {
             const newName = input.value.trim();
             if (newName && newName.length >= 2) {
+                const oldName = this.playerName;
                 this.playerName = newName;
                 localStorage.setItem('playerName', newName);
                 this.updatePlayerNameDisplay(); // Update UI immediately
-                this.notifyGameOfNameChange(newName);
+                
                 console.log('✅ Player name saved:', newName);
+                console.log('🔄 Notifying game of name change immediately...');
+                
+                // IMMEDIATE local update - don't wait for server
+                this.notifyGameOfNameChange(newName);
+                
+                console.log('📤 Name change processed locally, UI should update now');
             }
         }
         this.hideNameModal();
@@ -535,25 +549,52 @@ class LeaderboardManager {
 
     // Notify the game/server of name change
     notifyGameOfNameChange(newName) {
+        console.log('🎮 notifyGameOfNameChange called with:', newName);
+        
         // Update multiplayer game if running
         if (window.game && window.game.scene && window.game.scene.scenes[0]) {
             const scene = window.game.scene.scenes[0];
+            console.log('🎮 Game scene found, checking for socket and player...');
+            
             if (scene.socket && scene.myPlayer) {
+                console.log('🔌 Socket and player found, updating immediately...');
+                console.log('🆔 My socket ID:', scene.socket.id);
+                
                 // Update our own player info immediately
                 if (scene.playerInfo[scene.socket.id]) {
+                    const oldName = scene.playerInfo[scene.socket.id].name;
                     scene.playerInfo[scene.socket.id].name = newName;
+                    console.log(`📝 Updated playerInfo: ${oldName} → ${newName}`);
                 }
                 
-                // Update our name display above character immediately
+                // Update our name display above character immediately - FORCE UPDATE
                 if (scene.playerNames[scene.socket.id]) {
                     scene.playerNames[scene.socket.id].setText(newName);
-                    console.log('✅ Updated player name display above character:', newName);
+                    console.log('✅ IMMEDIATE: Updated floating name display to:', newName);
+                    
+                    // Force a visual refresh by temporarily scaling
+                    scene.playerNames[scene.socket.id].setScale(1.1);
+                    setTimeout(() => {
+                        if (scene.playerNames[scene.socket.id]) {
+                            scene.playerNames[scene.socket.id].setScale(1.0);
+                        }
+                    }, 100);
+                } else {
+                    console.error('❌ playerNames not found for socket ID:', scene.socket.id);
+                    console.log('🔍 Available playerNames:', Object.keys(scene.playerNames || {}));
                 }
                 
-                // Notify server of name change for other players
+                // Notify server of name change for other players (AFTER local update)
                 scene.socket.emit('nameChange', { newName: newName });
-                console.log('🔄 Notified server of name change:', newName);
+                console.log('📤 Sent nameChange to server for other players');
+            } else {
+                console.warn('⚠️ Socket or player not ready:', {
+                    hasSocket: !!scene.socket,
+                    hasPlayer: !!scene.myPlayer
+                });
             }
+        } else {
+            console.warn('⚠️ Game scene not found or not ready');
         }
         
         // Also update single-player if running

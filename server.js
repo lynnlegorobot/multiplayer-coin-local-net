@@ -39,6 +39,36 @@ const gameState = {
     maxItems: 15 // Increased to match client
 };
 
+// Player activity tracking
+const PLAYER_TIMEOUT = 30000; // 30 seconds of inactivity
+const CLEANUP_INTERVAL = 10000; // Check every 10 seconds
+
+// Player cleanup function
+function cleanupInactivePlayers() {
+    const now = Date.now();
+    let removedCount = 0;
+    
+    Object.keys(players).forEach(playerId => {
+        const player = players[playerId];
+        if (now - player.lastActivity > PLAYER_TIMEOUT) {
+            console.log(`🧹 Cleaning up inactive player: ${player.name} (inactive for ${Math.round((now - player.lastActivity) / 1000)}s)`);
+            delete players[playerId];
+            removedCount++;
+            
+            // Notify all remaining players
+            io.emit('playerDisconnected', playerId);
+        }
+    });
+    
+    if (removedCount > 0) {
+        console.log(`🧹 Cleaned up ${removedCount} inactive player(s). Active players: ${Object.keys(players).length}`);
+    }
+}
+
+// Start cleanup timer
+setInterval(cleanupInactivePlayers, CLEANUP_INTERVAL);
+console.log(`🧹 Player cleanup system started (timeout: ${PLAYER_TIMEOUT/1000}s, check interval: ${CLEANUP_INTERVAL/1000}s)`);
+
 // Generate random items on the map (matching client bounds)
 function generateItem() {
     return {
@@ -73,7 +103,8 @@ io.on('connection', (socket) => {
             score: 0,
             lives: 3,           // Start with 3 lives
             hitCount: 0,        // Track hits towards losing a life
-            coinsToLife: 100    // Coins needed for extra life
+            coinsToLife: 100,    // Coins needed for extra life
+            lastActivity: Date.now()
         };
 
         // Send existing players to new player
@@ -99,6 +130,7 @@ io.on('connection', (socket) => {
                 players[socket.id].rotation = movementData.rotation;
             }
             socket.broadcast.emit('playerMoved', players[socket.id]);
+            players[socket.id].lastActivity = Date.now();
         }
     });
 
@@ -149,6 +181,7 @@ io.on('connection', (socket) => {
                 hitCount: players[socket.id].hitCount,
                 coinsToLife: players[socket.id].coinsToLife
             });
+            players[socket.id].lastActivity = Date.now();
         } else {
             console.log(`❌ Item ${itemId} not found - already collected?`);
         }
@@ -202,6 +235,7 @@ io.on('connection', (socket) => {
             // Send knockback to both players
             socket.emit('knockback', { direction: 'attacker' });
             io.to(targetPlayerId).emit('knockback', { direction: 'victim' });
+            players[targetPlayerId].lastActivity = Date.now();
         }
     });
 
@@ -212,6 +246,7 @@ io.on('connection', (socket) => {
         if (players[socket.id] && data.newName && data.newName.trim()) {
             const oldName = players[socket.id].name;
             players[socket.id].name = data.newName.trim();
+            players[socket.id].lastActivity = Date.now();
             
             console.log(`📝 Name updated: ${oldName} → ${players[socket.id].name}`);
             
@@ -221,6 +256,15 @@ io.on('connection', (socket) => {
                 newName: players[socket.id].name,
                 oldName: oldName
             });
+        }
+    });
+
+    // Handle heartbeat to keep player active
+    socket.on('heartbeat', () => {
+        if (players[socket.id]) {
+            players[socket.id].lastActivity = Date.now();
+            // Optional: send back acknowledgment
+            // socket.emit('heartbeatAck');
         }
     });
 
