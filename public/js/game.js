@@ -329,25 +329,39 @@ class GameScene extends Phaser.Scene {
             }
         });
 
-        // Handle life lost
-        this.socket.on('lifeLost', (data) => {
-            if (data.playerId === this.socket.id) {
-                console.log('💔 Life lost!');
-                this.showLifeLostEffect();
-                if (window.soundManager) {
-                    window.soundManager.playLifeLost();
-                }
+        // Handle player respawn after losing a life
+        this.socket.on('playerRespawned', (data) => {
+            const { playerId, newX, newY } = data;
+            const player = this.players[playerId];
+            if (player) {
+                console.log(`💥 Player ${playerId} lost a life and is respawning.`);
+                this.handlePlayerRespawn(player, newX, newY);
+                if (window.soundManager) window.soundManager.playLifeLost();
             }
         });
 
         // Handle elimination
         this.socket.on('eliminated', (data) => {
-            if (data.playerId === this.socket.id) {
-                console.log('☠️ You have been eliminated!');
-                if (window.soundManager) {
-                    window.soundManager.playEliminated();
+            const player = this.players[data.playerId];
+            if (player) {
+                console.log(`☠️ Player ${data.playerId} has been eliminated!`);
+                
+                // Trigger final explosion
+                this.createExplosionEffect(player.x, player.y, player.tintTopLeft);
+                
+                // Play sound and clean up
+                if (window.soundManager) window.soundManager.playEliminated();
+                player.destroy();
+                delete this.players[data.playerId];
+                if (this.playerNames[data.playerId]) {
+                    this.playerNames[data.playerId].destroy();
+                    delete this.playerNames[data.playerId];
                 }
-                this.showEliminationScreen(data.finalScore);
+
+                // If it's me, show the elimination screen
+                if (data.playerId === this.socket.id) {
+                    this.showEliminationScreen(data.finalScore);
+                }
             }
         });
 
@@ -930,43 +944,6 @@ class GameScene extends Phaser.Scene {
         });
     }
 
-    // Show life lost visual effect
-    showLifeLostEffect() {
-        if (!this.cameras?.main) return;
-        
-        const camera = this.cameras.main;
-        camera.shake(500, 0.02);
-        camera.flash(800, 255, 0, 0); // Red flash
-        
-        const centerX = camera.centerX;
-        const centerY = camera.centerY;
-        
-        const lostText = this.add.text(centerX, centerY - 100, '💔 LIFE LOST! 💔', {
-            fontSize: '32px',
-            fontStyle: 'bold',
-            color: '#FF0000',
-            stroke: '#000000',
-            strokeThickness: 4
-        }).setOrigin(0.5);
-
-        this.tweens.add({
-            targets: lostText,
-            scaleX: 1.3,
-            scaleY: 1.3,
-            yoyo: true,
-            repeat: 1,
-            duration: 400,
-            onComplete: () => {
-                this.tweens.add({
-                    targets: lostText,
-                    alpha: 0,
-                    duration: 1500,
-                    onComplete: () => lostText.destroy()
-                });
-            }
-        });
-    }
-
     // Show elimination screen
     showEliminationScreen(finalScore) {
         // Submit final score
@@ -1009,9 +986,67 @@ class GameScene extends Phaser.Scene {
         document.body.appendChild(modal);
     }
 
+    createExplosionEffect(x, y, color) {
+        // Use the player's actual color for the particles
+        const particleColor = color || 0xffffff;
+
+        for (let i = 0; i < 30; i++) { // More particles for a bigger boom
+            const particle = this.add.graphics();
+            particle.fillStyle(particleColor, 1);
+            // Create small squares for a "bits" feel
+            particle.fillRect(-4, -4, 8, 8);
+            particle.x = x;
+            particle.y = y;
+            particle.setAlpha(1);
+
+            const angle = Phaser.Math.Between(0, 360) * (Math.PI / 180);
+            const distance = Phaser.Math.Between(50, 150);
+            const duration = Phaser.Math.Between(500, 1000);
+
+            this.tweens.add({
+                targets: particle,
+                x: x + Math.cos(angle) * distance,
+                y: y + Math.sin(angle) * distance,
+                alpha: 0,
+                duration: duration,
+                ease: 'Quad.easeOut',
+                onComplete: () => {
+                    particle.destroy();
+                }
+            });
+        }
+    }
+
+    handlePlayerRespawn(player, newX, newY) {
+        if (!player) return;
+
+        // 1. Create explosion at the old position
+        // The tint is stored in `tintTopLeft`
+        this.createExplosionEffect(player.x, player.y, player.tintTopLeft);
+
+        // 2. Hide the player immediately
+        player.setVisible(false);
+
+        // 3. After a delay, move and reveal the player
+        this.time.delayedCall(1000, () => {
+            if (player.active) { // Check if player hasn't been destroyed (e.g., by disconnection)
+                player.setPosition(newX, newY);
+                player.setAlpha(0);
+                player.setVisible(true);
+
+                // Fade them back in
+                this.tweens.add({
+                    targets: player,
+                    alpha: 1,
+                    duration: 500
+                });
+            }
+        });
+    }
+
     // Handle local player name update from the custom event
     handleLocalPlayerNameUpdate(newName) {
-        if (!this.socket || !this.myPlayer) {
+        if (!this.socket || !this.playerInfo[this.socket.id]) {
             console.warn('⚠️ GameScene: Cannot update local name, socket or player not ready.');
             return;
         }

@@ -243,8 +243,8 @@ io.on('connection', (socket) => {
                 if (players[targetPlayerId].lives <= 0) {
                     console.log(`☠️ Player ${players[targetPlayerId].name} eliminated with score ${players[targetPlayerId].score}!`);
                     
-                    // Notify player of elimination
-                    io.to(targetPlayerId).emit('eliminated', {
+                    // Notify ALL players of elimination to trigger explosion effect
+                    io.emit('eliminated', {
                         finalScore: players[targetPlayerId].score,
                         playerId: targetPlayerId
                     });
@@ -252,11 +252,20 @@ io.on('connection', (socket) => {
                     // Remove player from game
                     delete players[targetPlayerId];
                     io.emit('playerDisconnected', targetPlayerId);
+
                 } else {
-                    // Notify of life lost
-                    io.to(targetPlayerId).emit('lifeLost', {
-                        lives: players[targetPlayerId].lives,
-                        playerId: targetPlayerId
+                    // Player lost a life, but is not eliminated. Time to respawn.
+                    const spawnX = 100 + Math.random() * (WORLD_WIDTH - 200);
+                    const spawnY = 100 + Math.random() * (WORLD_HEIGHT - 200);
+
+                    players[targetPlayerId].x = spawnX;
+                    players[targetPlayerId].y = spawnY;
+
+                    // Notify ALL players of the respawn event to trigger effects
+                    io.emit('playerRespawned', {
+                        playerId: targetPlayerId,
+                        newX: spawnX,
+                        newY: spawnY
                     });
                 }
             }
@@ -264,9 +273,9 @@ io.on('connection', (socket) => {
             // Broadcast health update to all players
             io.emit('healthUpdate', { 
                 playerId: targetPlayerId, 
-                lives: players[targetPlayerId].lives,
-                hitCount: players[targetPlayerId].hitCount,
-                coinsToLife: players[targetPlayerId].coinsToLife
+                lives: players[targetPlayerId] ? players[targetPlayerId].lives : 0,
+                hitCount: players[targetPlayerId] ? players[targetPlayerId].hitCount : 0,
+                coinsToLife: players[targetPlayerId] ? players[targetPlayerId].coinsToLife : 0
             });
             
             // Send knockback to both players
