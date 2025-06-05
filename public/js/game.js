@@ -9,6 +9,8 @@ class GameScene extends Phaser.Scene {
         this.lastMoveTime = 0;
         this.score = 0;
         this.gameStartTime = Date.now();
+        this.playerInfo = {};
+        this.playerNames = {};
     }
 
     preload() {
@@ -65,6 +67,12 @@ class GameScene extends Phaser.Scene {
         // Add connection debugging
         this.socket.on('connect', () => {
             console.log('🔗 Connected to server with ID:', this.socket.id);
+            
+            // Join game with player name
+            const playerName = window.leaderboardManager?.playerName || 'Anonymous';
+            this.socket.emit('joinGame', { playerName: playerName });
+            console.log('🎮 Joining game as:', playerName);
+            
             // Initialize leaderboard when connected
             if (window.leaderboardManager) {
                 window.leaderboardManager.refreshLeaderboard();
@@ -128,8 +136,20 @@ class GameScene extends Phaser.Scene {
             if (this.players[playerId]) {
                 this.players[playerId].destroy();
                 delete this.players[playerId];
+                
+                // Clean up player name
+                if (this.playerNames[playerId]) {
+                    this.playerNames[playerId].destroy();
+                    delete this.playerNames[playerId];
+                }
+                
+                // Clean up player info
+                if (this.playerInfo[playerId]) {
+                    delete this.playerInfo[playerId];
+                }
+                
                 this.updateUI();
-                console.log('🗑️ Removed player:', playerId);
+                console.log('🗑️ Removed player and cleaned up:', playerId);
             }
         });
 
@@ -267,12 +287,30 @@ class GameScene extends Phaser.Scene {
         player.setCollideWorldBounds(true);
 
         this.players[playerInfo.id] = player;
+        
+        // Store player info
+        this.playerInfo[playerInfo.id] = {
+            name: playerInfo.name || window.leaderboardManager?.playerName || 'Anonymous',
+            score: 0
+        };
+        
+        // Add name text above player
+        this.playerNames[playerInfo.id] = this.add.text(playerInfo.x, playerInfo.y - 30, 
+            this.playerInfo[playerInfo.id].name, {
+            fontSize: '12px',
+            color: '#ffffff',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
 
         if (isMyPlayer) {
             this.myPlayer = player;
             // Smooth camera following like single-player
             this.cameras.main.startFollow(player, true, 0.05, 0.05);
             this.cameras.main.setZoom(1.2);
+            console.log('✅ Created my player:', this.playerInfo[playerInfo.id].name);
+        } else {
+            console.log('👤 Other player joined:', this.playerInfo[playerInfo.id].name);
         }
 
         this.updateUI();
@@ -420,6 +458,16 @@ class GameScene extends Phaser.Scene {
     update() {
         if (!this.myPlayer) return;
 
+        // Update player name positions
+        Object.keys(this.players).forEach(playerId => {
+            if (this.players[playerId] && this.playerNames[playerId]) {
+                this.playerNames[playerId].setPosition(
+                    this.players[playerId].x, 
+                    this.players[playerId].y - 35
+                );
+            }
+        });
+
         const speed = 250; // Increased speed like single-player
         let velocityX = 0;
         let velocityY = 0;
@@ -439,35 +487,30 @@ class GameScene extends Phaser.Scene {
 
         // Mobile joystick controls
         if (Math.abs(this.joystickData.x) > 0.1 || Math.abs(this.joystickData.y) > 0.1) {
-            velocityX = this.joystickData.x * speed;
-            velocityY = this.joystickData.y * speed;
+            velocityX += this.joystickData.x * speed;
+            velocityY += this.joystickData.y * speed;
         }
 
         // Apply velocity
         this.myPlayer.setVelocity(velocityX, velocityY);
         
-        // Rotate player based on movement direction (same as single-player)
+        // Rotation based on movement direction (enhanced like single-player)
         if (velocityX !== 0 || velocityY !== 0) {
             const angle = Math.atan2(velocityY, velocityX);
             this.myPlayer.setRotation(angle);
         }
 
-        // Send position updates (throttled for better mobile performance)
+        // Send position to server (with throttling)
         const now = Date.now();
-        if (now - this.lastMoveTime > 33) { // ~30fps for mobile efficiency
-            // Only send if player actually moved
-            if (Math.abs(velocityX) > 0 || Math.abs(velocityY) > 0) {
-                this.socket.emit('playerMovement', {
-                    x: this.myPlayer.x,
-                    y: this.myPlayer.y,
-                    rotation: this.myPlayer.rotation // Send rotation too
-                });
-                this.lastMoveTime = now;
-            }
+        if (now - this.lastMoveTime > 16) { // ~60fps throttling
+            const playerData = {
+                x: this.myPlayer.x,
+                y: this.myPlayer.y,
+                rotation: this.myPlayer.rotation
+            };
+            this.socket.emit('playerMovement', playerData);
+            this.lastMoveTime = now;
         }
-
-        // Remove the redundant collision detection - now handled in createItem
-        // This was causing double collection attempts and mobile issues
     }
 
     updateUI() {

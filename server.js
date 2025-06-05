@@ -53,21 +53,34 @@ for (let i = 0; i < gameState.maxItems; i++) {
 io.on('connection', (socket) => {
     console.log('A player connected:', socket.id);
 
-    // Create new player (matching client bounds)
-    players[socket.id] = {
-        id: socket.id,
-        x: Math.random() * 1100 + 100, // 100-1100 (safe spawn area)
-        y: Math.random() * 800 + 100,  // 100-800 (safe spawn area)
-        color: Math.floor(Math.random() * 0xFFFFFF),
-        score: 0
-    };
+    // Player joins
+    socket.on('joinGame', (playerData) => {
+        console.log(`🎮 Player ${socket.id} joining game:`, playerData?.playerName || 'Anonymous');
+        
+        const spawnX = 100 + Math.random() * (WORLD_WIDTH - 200);
+        const spawnY = 100 + Math.random() * (WORLD_HEIGHT - 200);
+        
+        players[socket.id] = {
+            id: socket.id,
+            x: spawnX,
+            y: spawnY,
+            color: Math.random() * 0xffffff,
+            name: playerData?.playerName || 'Anonymous',
+            score: 0
+        };
 
-    // Send current game state to new player
-    socket.emit('currentPlayers', players);
-    socket.emit('gameState', gameState);
+        // Send existing players to new player
+        socket.emit('currentPlayers', players);
+        
+        // Send current game state
+        socket.emit('gameState', { items: Object.values(items) });
 
-    // Tell other players about new player
-    socket.broadcast.emit('newPlayer', players[socket.id]);
+        // Notify all players about new player
+        socket.broadcast.emit('newPlayer', players[socket.id]);
+        
+        console.log(`✅ Player ${players[socket.id].name} joined at (${spawnX.toFixed(1)}, ${spawnY.toFixed(1)})`);
+        console.log(`👥 Total players: ${Object.keys(players).length}`);
+    });
 
     // Handle player movement
     socket.on('playerMovement', (movementData) => {
