@@ -99,12 +99,107 @@ class LeaderboardManager {
                    Math.floor(Math.random() * 100);
             localStorage.setItem('playerName', name);
             
-            // Show name to user and allow customization immediately
+            // Show name customization for new users immediately (with delay for better UX)
             setTimeout(() => {
-                this.showNameCustomization(name);
-            }, 1000); // Reduced delay for better UX
+                this.showWelcomeAndNameCustomization(name);
+            }, 2000); // Give time for game to load first
         }
         return name;
+    }
+
+    showWelcomeAndNameCustomization(generatedName) {
+        const modal = document.createElement('div');
+        modal.id = 'welcomeModal';
+        modal.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: flex; align-items: center;
+            justify-content: center; z-index: 2000; padding: 20px; box-sizing: border-box;
+        `;
+        
+        modal.innerHTML = `
+            <div style="background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 380px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <h3 style="color: #333; margin-bottom: 15px;">🎮 Welcome to Multiplayer Coin Collector!</h3>
+                <p style="color: #666; margin-bottom: 20px;">We've given you a random name, but you can customize it:</p>
+                <input type="text" id="welcomeNameInput" value="${generatedName}" 
+                       style="width: 100%; padding: 15px; border: 2px solid #ddd; border-radius: 8px; 
+                              font-size: 18px; text-align: center; margin-bottom: 20px; font-weight: bold; box-sizing: border-box;">
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px;">
+                    <button onclick="window.leaderboardManager.saveWelcomeName(); window.leaderboardManager.hideWelcomeModal();" 
+                            ontouchend="event.preventDefault(); window.leaderboardManager.saveWelcomeName(); window.leaderboardManager.hideWelcomeModal();"
+                            style="padding: 15px 25px; background: #4CAF50; color: white; border: none; 
+                                   border-radius: 8px; cursor: pointer; font-size: 16px; min-height: 50px; min-width: 120px; font-weight: bold;">
+                        ✅ Use This Name
+                    </button>
+                    <button onclick="window.leaderboardManager.generateWelcomeName();" 
+                            ontouchend="event.preventDefault(); window.leaderboardManager.generateWelcomeName();"
+                            style="padding: 15px 25px; background: #2196F3; color: white; border: none; 
+                                   border-radius: 8px; cursor: pointer; font-size: 16px; min-height: 50px; min-width: 120px; font-weight: bold;">
+                        🎲 Random
+                    </button>
+                </div>
+                <p style="font-size: 12px; color: #999; margin-bottom: 15px;">
+                    This name will appear to other players and on leaderboards.<br>
+                    You can change it anytime using the "Name" button.
+                </p>
+                <button onclick="window.leaderboardManager.hideWelcomeModal()" 
+                        ontouchend="event.preventDefault(); window.leaderboardManager.hideWelcomeModal();"
+                        style="padding: 10px 20px; background: #666; color: white; border: none; 
+                               border-radius: 8px; cursor: pointer; font-size: 14px; min-height: 44px;">
+                    Skip & Use Generated Name
+                </button>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Mobile-friendly input handling
+        const input = document.getElementById('welcomeNameInput');
+        if (input) {
+            input.addEventListener('touchstart', function() {
+                this.focus();
+            });
+            
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    window.leaderboardManager.saveWelcomeName();
+                    window.leaderboardManager.hideWelcomeModal();
+                }
+            });
+        }
+    }
+    
+    saveWelcomeName() {
+        const input = document.getElementById('welcomeNameInput');
+        if (input) {
+            const newName = input.value.trim();
+            if (newName && newName.length >= 2) {
+                this.playerName = newName;
+                localStorage.setItem('playerName', newName);
+                this.updatePlayerNameDisplay();
+                console.log('✅ Welcome name saved:', newName);
+            }
+        }
+    }
+    
+    generateWelcomeName() {
+        const adjectives = ['Swift', 'Mighty', 'Golden', 'Shadow', 'Cosmic', 'Thunder', 'Crystal', 'Neon', 'Blazing', 'Electric'];
+        const nouns = ['Hunter', 'Collector', 'Seeker', 'Champion', 'Explorer', 'Warrior', 'Legend', 'Hero', 'Master', 'Pro'];
+        const newName = adjectives[Math.floor(Math.random() * adjectives.length)] + 
+                       nouns[Math.floor(Math.random() * nouns.length)] + 
+                       Math.floor(Math.random() * 100);
+        
+        const input = document.getElementById('welcomeNameInput');
+        if (input) {
+            input.value = newName;
+        }
+    }
+    
+    hideWelcomeModal() {
+        const modal = document.getElementById('welcomeModal');
+        if (modal) {
+            modal.remove();
+        }
     }
 
     showNameCustomization(currentName) {
@@ -123,27 +218,31 @@ class LeaderboardManager {
                 <h3 style="color: #333; margin-bottom: 20px;">🎮 Player Identity</h3>
                 <p style="color: #666; margin-bottom: 20px;">Your multiplayer name:</p>
                 <input type="text" id="playerNameInput" value="${currentName}" 
-                       style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; 
-                              font-size: 16px; text-align: center; margin-bottom: 20px; font-weight: bold;">
+                       style="width: 100%; padding: 15px; border: 2px solid #ddd; border-radius: 8px; 
+                              font-size: 18px; text-align: center; margin-bottom: 20px; font-weight: bold; box-sizing: border-box;">
                 <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                     <button onclick="window.leaderboardManager.saveName()" 
-                            style="padding: 12px 20px; background: #4CAF50; color: white; border: none; 
-                                   border-radius: 8px; cursor: pointer; font-size: 16px; min-height: 48px;">
+                            ontouchend="event.preventDefault(); window.leaderboardManager.saveName();"
+                            style="padding: 15px 25px; background: #4CAF50; color: white; border: none; 
+                                   border-radius: 8px; cursor: pointer; font-size: 16px; min-height: 50px; min-width: 120px; font-weight: bold;">
                         ✅ Save Name
                     </button>
                     <button onclick="window.leaderboardManager.generateNewName()" 
-                            style="padding: 12px 20px; background: #2196F3; color: white; border: none; 
-                                   border-radius: 8px; cursor: pointer; font-size: 16px; min-height: 48px;">
+                            ontouchend="event.preventDefault(); window.leaderboardManager.generateNewName();"
+                            style="padding: 15px 25px; background: #2196F3; color: white; border: none; 
+                                   border-radius: 8px; cursor: pointer; font-size: 16px; min-height: 50px; min-width: 120px; font-weight: bold;">
                         🎲 Random
                     </button>
                 </div>
                 <p style="font-size: 12px; color: #999; margin-top: 15px;">
                     This name will appear on the global leaderboard.<br>
-                    Click your name in the top-left to change it anytime.
+                    Click your name in the top-left or the "Name" button to change it anytime.
                 </p>
                 <button onclick="window.leaderboardManager.hideNameModal()" 
-                        style="position: absolute; top: 10px; right: 10px; background: #ff4444; color: white; 
-                               border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 16px;">
+                        ontouchend="event.preventDefault(); window.leaderboardManager.hideNameModal();"
+                        style="position: absolute; top: 15px; right: 15px; background: #ff4444; color: white; 
+                               border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; 
+                               font-size: 18px; font-weight: bold; min-height: 40px;">
                     ✕
                 </button>
             </div>
@@ -151,14 +250,34 @@ class LeaderboardManager {
         
         document.body.appendChild(modal);
         
-        // Focus the input for easy typing
+        // Focus the input for easy typing (but be careful on mobile)
         setTimeout(() => {
             const input = document.getElementById('playerNameInput');
             if (input) {
-                input.focus();
+                // Only focus if not on mobile to avoid keyboard issues
+                const isMobile = /Mobile|Android|iPhone|iPad/.test(navigator.userAgent);
+                if (!isMobile) {
+                    input.focus();
+                }
                 input.select();
             }
         }, 100);
+        
+        // Add mobile-friendly input handling
+        const input = document.getElementById('playerNameInput');
+        if (input) {
+            input.addEventListener('touchstart', function() {
+                this.focus();
+            });
+            
+            // Allow Enter key to save
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    window.leaderboardManager.saveName();
+                }
+            });
+        }
     }
 
     saveName() {

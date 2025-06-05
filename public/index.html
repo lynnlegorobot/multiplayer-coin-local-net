@@ -267,15 +267,26 @@
             
             <!-- Game Control Buttons -->
             <div style="margin-top: 15px; pointer-events: auto; display: flex; gap: 10px; flex-wrap: wrap;">
-                <button id="quitBtn" onclick="quitGame()" 
+                <button id="quitBtn" 
+                        onclick="quitGame()" 
+                        ontouchend="event.preventDefault(); quitGame();"
                         style="padding: 8px 15px; background: #f44336; color: white; border: none; 
-                               border-radius: 5px; cursor: pointer; font-size: 12px; min-height: 36px;">
+                               border-radius: 5px; cursor: pointer; font-size: 12px; min-height: 40px; min-width: 100px;">
                     🚪 Quit & Save Score
                 </button>
-                <button id="leaderboardBtn" onclick="showFullLeaderboard()" 
+                <button id="leaderboardBtn" 
+                        onclick="showFullLeaderboard()" 
+                        ontouchend="event.preventDefault(); showFullLeaderboard();"
                         style="padding: 8px 15px; background: #2196F3; color: white; border: none; 
-                               border-radius: 5px; cursor: pointer; font-size: 12px; min-height: 36px;">
+                               border-radius: 5px; cursor: pointer; font-size: 12px; min-height: 40px; min-width: 100px;">
                     🏆 View Leaderboard
+                </button>
+                <button id="nameBtn" 
+                        onclick="showNameCustomization()" 
+                        ontouchend="event.preventDefault(); showNameCustomization();"
+                        style="padding: 8px 15px; background: #4CAF50; color: white; border: none; 
+                               border-radius: 5px; cursor: pointer; font-size: 12px; min-height: 40px; min-width: 80px;">
+                    ✏️ Name
                 </button>
             </div>
             
@@ -727,6 +738,81 @@
             showQuitSummary();
         }
         
+        function showNameCustomization() {
+            console.log('✏️ Opening name customization...');
+            if (window.leaderboardManager) {
+                const currentName = window.leaderboardManager.playerName || 'Anonymous';
+                window.leaderboardManager.showNameCustomization(currentName);
+            } else {
+                // Fallback for when leaderboard manager isn't available
+                showSimpleNamePrompt();
+            }
+        }
+        
+        function showSimpleNamePrompt() {
+            const newName = prompt('Enter your player name:', localStorage.getItem('playerName') || 'Anonymous');
+            if (newName && newName.trim()) {
+                localStorage.setItem('playerName', newName.trim());
+                document.getElementById('playerNameText').textContent = newName.trim();
+                console.log('✅ Name updated to:', newName.trim());
+                
+                // Reconnect to update server with new name
+                if (window.game && window.game.scene && window.game.scene.scenes[0]) {
+                    const scene = window.game.scene.scenes[0];
+                    if (scene.socket) {
+                        scene.socket.emit('joinGame', { playerName: newName.trim() });
+                    }
+                }
+            }
+        }
+        
+        // Enhanced mobile button handling
+        function setupMobileButtons() {
+            const buttons = ['quitBtn', 'leaderboardBtn', 'nameBtn'];
+            
+            buttons.forEach(buttonId => {
+                const button = document.getElementById(buttonId);
+                if (button) {
+                    // Add touch event listeners
+                    button.addEventListener('touchstart', function(e) {
+                        e.preventDefault();
+                        this.style.opacity = '0.7';
+                        console.log('📱 Touch start on', buttonId);
+                    });
+                    
+                    button.addEventListener('touchend', function(e) {
+                        e.preventDefault();
+                        this.style.opacity = '1';
+                        console.log('📱 Touch end on', buttonId);
+                        
+                        // Trigger the appropriate function
+                        switch(buttonId) {
+                            case 'quitBtn':
+                                quitGame();
+                                break;
+                            case 'leaderboardBtn':
+                                showFullLeaderboard();
+                                break;
+                            case 'nameBtn':
+                                showNameCustomization();
+                                break;
+                        }
+                    });
+                    
+                    button.addEventListener('touchcancel', function(e) {
+                        e.preventDefault();
+                        this.style.opacity = '1';
+                    });
+                }
+            });
+        }
+        
+        // Initialize mobile button handling when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📱 Setting up mobile button handlers...');
+            setupMobileButtons();
+        });
+        
         function showQuitSummary() {
             const currentScore = parseInt(document.getElementById('score').textContent) || 0;
             const gameTime = window.game?.scene?.scenes[0]?.gameStartTime 
@@ -754,18 +840,21 @@
                     </div>
                     <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                         <button onclick="showFullLeaderboard(); this.parentElement.parentElement.parentElement.remove();" 
+                                ontouchend="event.preventDefault(); showFullLeaderboard(); this.parentElement.parentElement.parentElement.remove();"
                                 style="padding: 12px 20px; background: #2196F3; color: white; border: none; 
-                                       border-radius: 8px; cursor: pointer; font-size: 14px;">
+                                       border-radius: 8px; cursor: pointer; font-size: 14px; min-height: 44px;">
                             🏆 View Leaderboard
                         </button>
                         <button onclick="location.reload()" 
+                                ontouchend="event.preventDefault(); location.reload();"
                                 style="padding: 12px 20px; background: #4CAF50; color: white; border: none; 
-                                       border-radius: 8px; cursor: pointer; font-size: 14px;">
+                                       border-radius: 8px; cursor: pointer; font-size: 14px; min-height: 44px;">
                             🔄 Play Again
                         </button>
                         <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                                ontouchend="event.preventDefault(); this.parentElement.parentElement.parentElement.remove();"
                                 style="padding: 12px 20px; background: #666; color: white; border: none; 
-                                       border-radius: 8px; cursor: pointer; font-size: 14px;">
+                                       border-radius: 8px; cursor: pointer; font-size: 14px; min-height: 44px;">
                             ❌ Close
                         </button>
                     </div>
@@ -823,8 +912,9 @@
                     
                     <div style="text-align: center; margin-top: 20px;">
                         <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                                ontouchend="event.preventDefault(); this.parentElement.parentElement.parentElement.remove();"
                                 style="padding: 12px 24px; background: #666; color: white; border: none; 
-                                       border-radius: 8px; cursor: pointer; font-size: 14px;">
+                                       border-radius: 8px; cursor: pointer; font-size: 14px; min-height: 44px;">
                             ✅ Close
                         </button>
                     </div>
