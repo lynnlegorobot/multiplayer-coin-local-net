@@ -177,6 +177,7 @@ class LeaderboardManager {
                 this.playerName = newName;
                 localStorage.setItem('playerName', newName);
                 this.updatePlayerNameDisplay();
+                this.notifyGameOfNameChange(newName);
                 console.log('✅ Welcome name saved:', newName);
             }
         }
@@ -288,6 +289,7 @@ class LeaderboardManager {
                 this.playerName = newName;
                 localStorage.setItem('playerName', newName);
                 this.updatePlayerNameDisplay(); // Update UI immediately
+                this.notifyGameOfNameChange(newName);
                 console.log('✅ Player name saved:', newName);
             }
         }
@@ -529,6 +531,29 @@ class LeaderboardManager {
                 }, 300);
             }
         }, 4000);
+    }
+
+    // Notify the game/server of name change
+    notifyGameOfNameChange(newName) {
+        // Update multiplayer game if running
+        if (window.game && window.game.scene && window.game.scene.scenes[0]) {
+            const scene = window.game.scene.scenes[0];
+            if (scene.socket && scene.myPlayer) {
+                // Update our own player info
+                if (scene.playerInfo[scene.socket.id]) {
+                    scene.playerInfo[scene.socket.id].name = newName;
+                }
+                
+                // Update our name display above character
+                if (scene.playerNames[scene.socket.id]) {
+                    scene.playerNames[scene.socket.id].setText(newName);
+                }
+                
+                // Notify server of name change
+                scene.socket.emit('nameChange', { newName: newName });
+                console.log('🔄 Notified server of name change:', newName);
+            }
+        }
     }
 }
 

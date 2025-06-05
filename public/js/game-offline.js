@@ -11,6 +11,7 @@ class GameScene extends Phaser.Scene {
         this.itemCount = 0;
         this.maxItems = 15;
         this.highScore = this.getHighScore(); // Load high score
+        this.gameStartTime = Date.now(); // Track game start time for leaderboard
         console.log('🎯 GameScene constructor called');
     }
 
@@ -30,6 +31,9 @@ class GameScene extends Phaser.Scene {
             this.highScore = this.score;
             this.saveHighScore();
             this.showNewHighScoreEffect();
+            
+            // Submit to leaderboard system if available
+            this.submitToLeaderboard();
             return true;
         }
         return false;
@@ -134,6 +138,40 @@ class GameScene extends Phaser.Scene {
             if (window.gameLoadedCallback) {
                 window.gameLoadedCallback();
             }
+            
+            // Play game start sound and setup
+            if (window.soundManager) {
+                window.soundManager.playGameStart();
+                // Start ambient background hum
+                setTimeout(() => {
+                    window.soundManager.startAmbientHum();
+                }, 2000);
+            }
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                if (game) {
+                    game.scale.resize(window.innerWidth, window.innerHeight);
+                }
+            });
+            
+            // Handle page unload/close to submit final score
+            window.addEventListener('beforeunload', () => {
+                const gameScene = game.scene.scenes[0];
+                if (gameScene && gameScene.submitFinalScore) {
+                    gameScene.submitFinalScore();
+                }
+            });
+
+            // Handle page visibility change (mobile app switching)
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    const gameScene = game.scene.scenes[0];
+                    if (gameScene && gameScene.submitFinalScore) {
+                        gameScene.submitFinalScore();
+                    }
+                }
+            });
             
         } catch (error) {
             console.error('❌ Error creating game scene:', error);
@@ -247,6 +285,11 @@ class GameScene extends Phaser.Scene {
         try {
             // Create collection effect
             this.createCollectionEffect(item.x, item.y);
+            
+            // Play coin collection sound
+            if (window.soundManager) {
+                window.soundManager.playCoinCollect();
+            }
 
             // Remove item
             item.destroy();
@@ -258,6 +301,13 @@ class GameScene extends Phaser.Scene {
             // Check for new high score
             this.checkNewHighScore();
             
+            // Play score milestone sound for significant achievements
+            if (this.score > 0 && this.score % 50 === 0) {
+                if (window.soundManager) {
+                    window.soundManager.playScoreMilestone(this.score);
+                }
+            }
+            
             this.updateUI();
 
             // Generate new item after a short delay
@@ -265,7 +315,7 @@ class GameScene extends Phaser.Scene {
                 this.createItem();
             });
 
-            // Play collection sound effect (visual feedback)
+            // Camera shake effect
             this.cameras.main.shake(100, 0.01);
         } catch (error) {
             console.error('❌ Error in collectItem:', error);
@@ -441,18 +491,53 @@ class GameScene extends Phaser.Scene {
     updateUI() {
         try {
             const scoreElement = document.getElementById('score');
-            const playerCountElement = document.getElementById('playerCount');
+            if (scoreElement) {
+                scoreElement.textContent = this.score;
+            }
             
-            if (scoreElement) scoreElement.textContent = this.score;
-            if (playerCountElement) {
-                playerCountElement.innerHTML = `
-                    1 (Offline Mode)<br>
-                    <small style="color: #FFD700;">High: ${this.highScore}</small>
-                `;
+            // Use leaderboard manager if available, otherwise fallback to basic UI
+            if (window.leaderboardManager) {
+                window.leaderboardManager.updateLeaderboardUI(window.leaderboardManager.lastScores || []);
+            } else {
+                // Fallback for when leaderboard manager isn't available
+                const playerCountElement = document.getElementById('playerCount');
+                if (playerCountElement) {
+                    playerCountElement.innerHTML = `
+                        📱 Single-player<br>
+                        <small style="color: #FFD700;">High: ${this.highScore}</small>
+                    `;
+                }
             }
         } catch (error) {
             console.error('❌ Error updating UI:', error);
         }
+    }
+
+    // Submit score to leaderboard system
+    async submitToLeaderboard() {
+        if (this.score <= 0) return;
+        
+        console.log(`🏆 Submitting score to leaderboard: ${this.score}`);
+        
+        if (window.leaderboardManager) {
+            // Submit to both local and global leaderboards if available
+            await window.leaderboardManager.submitScore(this.score);
+            window.leaderboardManager.saveLocalScore(this.score);
+            window.leaderboardManager.refreshLeaderboard();
+        } else {
+            console.warn('⚠️ Leaderboard manager not available');
+        }
+    }
+
+    // Submit final score when game ends or player quits
+    async submitFinalScore() {
+        if (this.score <= 0) return;
+        
+        const sessionDuration = (Date.now() - this.gameStartTime) / 1000; // seconds
+        
+        console.log(`🎮 Single-player session ended - Score: ${this.score}, Duration: ${sessionDuration.toFixed(1)}s`);
+        
+        await this.submitToLeaderboard();
     }
 }
 
@@ -499,6 +584,24 @@ try {
             window.addEventListener('resize', () => {
                 if (game) {
                     game.scale.resize(window.innerWidth, window.innerHeight);
+                }
+            });
+            
+            // Handle page unload/close to submit final score
+            window.addEventListener('beforeunload', () => {
+                const gameScene = game.scene.scenes[0];
+                if (gameScene && gameScene.submitFinalScore) {
+                    gameScene.submitFinalScore();
+                }
+            });
+
+            // Handle page visibility change (mobile app switching)
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    const gameScene = game.scene.scenes[0];
+                    if (gameScene && gameScene.submitFinalScore) {
+                        gameScene.submitFinalScore();
+                    }
                 }
             });
             

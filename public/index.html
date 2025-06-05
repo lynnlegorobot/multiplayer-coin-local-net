@@ -768,10 +768,12 @@
         function quitGame() {
             console.log('🚪 Player is quitting the game...');
             
-            // Submit final score
+            // Submit final score for both multiplayer and single-player
             if (window.game && window.game.scene && window.game.scene.scenes[0]) {
                 const scene = window.game.scene.scenes[0];
-                scene.submitFinalScore();
+                if (scene.submitFinalScore) {
+                    scene.submitFinalScore();
+                }
             }
             
             // Show quit confirmation and score summary

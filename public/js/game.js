@@ -149,6 +149,22 @@ class GameScene extends Phaser.Scene {
             }
         });
 
+        // Handle player name changes
+        this.socket.on('playerNameChanged', (data) => {
+            console.log('📝 Player name changed:', data.playerId, data.oldName, '→', data.newName);
+            
+            // Update player info
+            if (this.playerInfo[data.playerId]) {
+                this.playerInfo[data.playerId].name = data.newName;
+            }
+            
+            // Update name display above player
+            if (this.playerNames[data.playerId]) {
+                this.playerNames[data.playerId].setText(data.newName);
+                console.log('✅ Updated name display for player:', data.playerId);
+            }
+        });
+
         // Handle player disconnection
         this.socket.on('playerDisconnected', (playerId) => {
             console.log('👋 Player disconnected:', playerId);

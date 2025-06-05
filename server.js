@@ -131,6 +131,25 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Handle name changes
+    socket.on('nameChange', (data) => {
+        console.log(`✏️ Player ${socket.id} changing name to:`, data.newName);
+        
+        if (players[socket.id] && data.newName && data.newName.trim()) {
+            const oldName = players[socket.id].name;
+            players[socket.id].name = data.newName.trim();
+            
+            console.log(`📝 Name updated: ${oldName} → ${players[socket.id].name}`);
+            
+            // Broadcast name change to all other players
+            socket.broadcast.emit('playerNameChanged', {
+                playerId: socket.id,
+                newName: players[socket.id].name,
+                oldName: oldName
+            });
+        }
+    });
+
     // Handle disconnection
     socket.on('disconnect', () => {
         console.log('Player disconnected:', socket.id);
