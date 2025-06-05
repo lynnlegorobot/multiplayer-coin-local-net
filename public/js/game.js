@@ -30,6 +30,10 @@ class GameScene extends Phaser.Scene {
         this.isKnockedBack = false;
         this.knockbackVelocity = { x: 0, y: 0 };
         this.lastHeartbeat = 0;
+        
+        // Track movement state for collision determination
+        this.isMoving = false;
+        this.lastMovementTime = 0;
     }
 
     preload() {
@@ -486,21 +490,25 @@ class GameScene extends Phaser.Scene {
                     }
                     
                     // Determine who should send the hit to prevent double damage
-                    // Capture velocities immediately since collision physics will change them
-                    const myVelocity = Math.sqrt(playerA.body.velocity.x ** 2 + playerA.body.velocity.y ** 2);
-                    const theirVelocity = Math.sqrt(playerB.body.velocity.x ** 2 + playerB.body.velocity.y ** 2);
+                    // Use recent movement activity to determine aggressor (much more reliable than velocity)
+                    const myRecentlyMoved = now - this.lastMovementTime < 200; // Moved in last 200ms
+                    const cooldownOk = now - this.lastHitTime > 1000;
                     
-                    // Only send hit if I have more momentum (I'm the aggressor) OR if velocities are equal, use socket ID as tiebreaker
-                    const velocityThreshold = 1.0; // Small threshold to account for floating point precision
-                    const iAmAggressor = myVelocity > theirVelocity + velocityThreshold || 
-                                        (Math.abs(myVelocity - theirVelocity) <= velocityThreshold && this.socket.id > playerInfo.id);
+                    // Simple rule: if I'm actively moving and they're not, I'm the aggressor
+                    // If both or neither are moving, use socket ID as tiebreaker
+                    let iAmAggressor = false;
+                    if (myRecentlyMoved && cooldownOk) {
+                        iAmAggressor = true; // I'm moving, so I'm probably the aggressor
+                    } else if (!myRecentlyMoved && cooldownOk) {
+                        iAmAggressor = this.socket.id > playerInfo.id; // Neither moving, use tiebreaker
+                    }
                     
-                    if (now - this.lastHitTime > 1000 && iAmAggressor) {
+                    if (iAmAggressor) {
                         this.socket.emit('playerHit', { targetPlayerId: playerInfo.id });
                         this.lastHitTime = now;
-                        console.log(`⚔️ Hit sent to server - I'm the aggressor (my velocity: ${myVelocity.toFixed(1)} vs their velocity: ${theirVelocity.toFixed(1)})`);
-                    } else if (now - this.lastHitTime > 1000) {
-                        console.log(`🛡️ I'm the victim (my velocity: ${myVelocity.toFixed(1)} vs their velocity: ${theirVelocity.toFixed(1)}) - not sending hit`);
+                        console.log(`⚔️ Hit sent - I'm the aggressor (recently moved: ${myRecentlyMoved})`);
+                    } else if (cooldownOk) {
+                        console.log(`🛡️ I'm the victim (recently moved: ${myRecentlyMoved}) - not sending hit`);
                     }
                 });
             }
@@ -534,21 +542,25 @@ class GameScene extends Phaser.Scene {
                     }
                     
                     // Determine who should send the hit to prevent double damage
-                    // Capture velocities immediately since collision physics will change them
-                    const myVelocity = Math.sqrt(playerA.body.velocity.x ** 2 + playerA.body.velocity.y ** 2);
-                    const theirVelocity = Math.sqrt(playerB.body.velocity.x ** 2 + playerB.body.velocity.y ** 2);
+                    // Use recent movement activity to determine aggressor (much more reliable than velocity)
+                    const myRecentlyMoved = now - this.lastMovementTime < 200; // Moved in last 200ms
+                    const cooldownOk = now - this.lastHitTime > 1000;
                     
-                    // Only send hit if I have more momentum (I'm the aggressor) OR if velocities are equal, use socket ID as tiebreaker
-                    const velocityThreshold = 1.0; // Small threshold to account for floating point precision
-                    const iAmAggressor = myVelocity > theirVelocity + velocityThreshold || 
-                                        (Math.abs(myVelocity - theirVelocity) <= velocityThreshold && this.socket.id > playerId);
+                    // Simple rule: if I'm actively moving and they're not, I'm the aggressor
+                    // If both or neither are moving, use socket ID as tiebreaker
+                    let iAmAggressor = false;
+                    if (myRecentlyMoved && cooldownOk) {
+                        iAmAggressor = true; // I'm moving, so I'm probably the aggressor
+                    } else if (!myRecentlyMoved && cooldownOk) {
+                        iAmAggressor = this.socket.id > playerId; // Neither moving, use tiebreaker
+                    }
                     
-                    if (now - this.lastHitTime > 1000 && iAmAggressor) {
+                    if (iAmAggressor) {
                         this.socket.emit('playerHit', { targetPlayerId: playerId });
                         this.lastHitTime = now;
-                        console.log(`⚔️ Hit sent to server - I'm the aggressor (my velocity: ${myVelocity.toFixed(1)} vs their velocity: ${theirVelocity.toFixed(1)})`);
-                    } else if (now - this.lastHitTime > 1000) {
-                        console.log(`🛡️ I'm the victim (my velocity: ${myVelocity.toFixed(1)} vs their velocity: ${theirVelocity.toFixed(1)}) - not sending hit`);
+                        console.log(`⚔️ Hit sent - I'm the aggressor (recently moved: ${myRecentlyMoved})`);
+                    } else if (cooldownOk) {
+                        console.log(`🛡️ I'm the victim (recently moved: ${myRecentlyMoved}) - not sending hit`);
                     }
                 });
             }
@@ -734,6 +746,14 @@ class GameScene extends Phaser.Scene {
 
         // Apply velocity
         this.myPlayer.setVelocity(velocityX, velocityY);
+        
+        // Track movement state for collision detection
+        if (velocityX !== 0 || velocityY !== 0) {
+            this.isMoving = true;
+            this.lastMovementTime = Date.now();
+        } else {
+            this.isMoving = false;
+        }
         
         // Apply knockback if active
         if (this.isKnockedBack) {
