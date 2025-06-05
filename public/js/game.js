@@ -471,11 +471,11 @@ class GameScene extends Phaser.Scene {
             
             // If we already have our player, add collision with this new player
             if (this.myPlayer) {
-                this.physics.add.collider(this.myPlayer, player, () => {
+                this.physics.add.collider(this.myPlayer, player, (playerA, playerB) => {
                     // Add collision effects with throttling
                     const now = Date.now();
-                    if (now - (this.lastCollisionSound || 0) > 500) { // Max once per 500ms
-                        console.log('💥 Player collision with:', this.playerInfo[playerInfo.id].name);
+                    if (now - this.lastCollisionSound > 500) { // Max once per 500ms
+                        console.log('💥 Player collision with:', this.playerInfo[playerInfo.id]?.name || 'Unknown');
                         
                         // Play collision sound
                         if (window.soundManager) {
@@ -485,11 +485,21 @@ class GameScene extends Phaser.Scene {
                         this.lastCollisionSound = now;
                     }
                     
-                    // Send hit to server (with longer cooldown to prevent spam)
-                    if (now - (this.lastHitTime || 0) > 1000) { // Max one hit per second
+                    // Determine who should take damage based on velocity/momentum
+                    // Only the client with higher momentum sends the hit to prevent double damage
+                    const myVelocity = Math.sqrt(playerA.body.velocity.x ** 2 + playerA.body.velocity.y ** 2);
+                    const theirVelocity = Math.sqrt(playerB.body.velocity.x ** 2 + playerB.body.velocity.y ** 2);
+                    
+                    // Send hit to server only if I have more momentum (I'm the aggressor)
+                    // Add small random factor to break ties and prevent both players thinking they have equal momentum
+                    const tieBreaker = (this.socket.id > playerInfo.id) ? 0.1 : 0;
+                    
+                    if (now - this.lastHitTime > 1000 && (myVelocity + tieBreaker) > theirVelocity) {
                         this.socket.emit('playerHit', { targetPlayerId: playerInfo.id });
                         this.lastHitTime = now;
-                        console.log('⚔️ Hit sent to server for player:', playerInfo.id);
+                        console.log(`⚔️ Hit sent to server - I'm the aggressor (my velocity: ${myVelocity.toFixed(1)} vs their velocity: ${theirVelocity.toFixed(1)})`);
+                    } else if (now - this.lastHitTime > 1000) {
+                        console.log(`🛡️ I'm the victim (my velocity: ${myVelocity.toFixed(1)} vs their velocity: ${theirVelocity.toFixed(1)}) - not sending hit`);
                     }
                 });
             }
@@ -508,7 +518,7 @@ class GameScene extends Phaser.Scene {
         
         Object.keys(this.players).forEach(playerId => {
             if (playerId !== this.socket.id && this.players[playerId]) {
-                this.physics.add.collider(this.myPlayer, this.players[playerId], () => {
+                this.physics.add.collider(this.myPlayer, this.players[playerId], (playerA, playerB) => {
                     // Add collision effects with throttling
                     const now = Date.now();
                     if (now - this.lastCollisionSound > 500) { // Max once per 500ms
@@ -522,11 +532,21 @@ class GameScene extends Phaser.Scene {
                         this.lastCollisionSound = now;
                     }
                     
-                    // Send hit to server (with longer cooldown to prevent spam)
-                    if (now - this.lastHitTime > 1000) { // Max one hit per second
+                    // Determine who should take damage based on velocity/momentum
+                    // Only the client with higher momentum sends the hit to prevent double damage
+                    const myVelocity = Math.sqrt(playerA.body.velocity.x ** 2 + playerA.body.velocity.y ** 2);
+                    const theirVelocity = Math.sqrt(playerB.body.velocity.x ** 2 + playerB.body.velocity.y ** 2);
+                    
+                    // Send hit to server only if I have more momentum (I'm the aggressor)
+                    // Add small random factor to break ties and prevent both players thinking they have equal momentum
+                    const tieBreaker = (this.socket.id > playerId) ? 0.1 : 0;
+                    
+                    if (now - this.lastHitTime > 1000 && (myVelocity + tieBreaker) > theirVelocity) {
                         this.socket.emit('playerHit', { targetPlayerId: playerId });
                         this.lastHitTime = now;
-                        console.log('⚔️ Hit sent to server for player:', playerId);
+                        console.log(`⚔️ Hit sent to server - I'm the aggressor (my velocity: ${myVelocity.toFixed(1)} vs their velocity: ${theirVelocity.toFixed(1)})`);
+                    } else if (now - this.lastHitTime > 1000) {
+                        console.log(`🛡️ I'm the victim (my velocity: ${myVelocity.toFixed(1)} vs their velocity: ${theirVelocity.toFixed(1)}) - not sending hit`);
                     }
                 });
             }
