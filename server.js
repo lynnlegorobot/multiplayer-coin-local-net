@@ -40,8 +40,8 @@ const gameState = {
 };
 
 // Player activity tracking
-const PLAYER_TIMEOUT = 30000; // 30 seconds of inactivity
-const CLEANUP_INTERVAL = 10000; // Check every 10 seconds
+const PLAYER_TIMEOUT = 3600000; // 1 hour of inactivity (3,600,000 ms)
+const CLEANUP_INTERVAL = 600000; // Check every 1 minute.
 
 // Player cleanup function
 function cleanupInactivePlayers() {
