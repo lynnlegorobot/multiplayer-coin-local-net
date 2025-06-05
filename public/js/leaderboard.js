@@ -15,27 +15,35 @@ class LeaderboardManager {
 
     async init() {
         try {
+            console.log('🚀 Initializing leaderboard system...');
+            
             // Check if Supabase is available
             if (typeof supabase !== 'undefined' && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
-                console.log('🔗 Connecting to Supabase...');
+                console.log('🔗 Supabase libraries and config found, attempting connection...');
                 console.log('📍 URL:', window.SUPABASE_URL);
-                console.log('🔑 Has key:', !!window.SUPABASE_ANON_KEY);
+                console.log('🔑 Has key:', window.SUPABASE_ANON_KEY ? 'YES' : 'NO');
                 
                 this.supabase = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
                 await this.testConnection();
-                console.log('✅ Supabase leaderboard connected');
+                
+                if (this.isOnline) {
+                    console.log('✅ SUPABASE LEADERBOARD ACTIVE - You are using the global leaderboard!');
+                    this.showConnectionStatus('🌐 Connected to Global Leaderboard!', '#4CAF50');
+                }
             } else {
-                console.log('⚠️ Supabase not configured - using offline mode');
-                console.log('🔍 Debug info:', {
-                    supabaseLibrary: typeof supabase !== 'undefined',
-                    hasUrl: !!window.SUPABASE_URL,
-                    hasKey: !!window.SUPABASE_ANON_KEY
-                });
+                console.log('⚠️ Supabase not available - missing requirements:');
+                console.log('   - Supabase library loaded:', typeof supabase !== 'undefined');
+                console.log('   - Has SUPABASE_URL:', !!window.SUPABASE_URL, window.SUPABASE_URL || '(empty)');
+                console.log('   - Has SUPABASE_ANON_KEY:', !!window.SUPABASE_ANON_KEY, window.SUPABASE_ANON_KEY ? '(set)' : '(empty)');
+                console.log('📱 USING LOCAL LEADERBOARD ONLY');
                 this.isOnline = false;
+                this.showConnectionStatus('📱 Using Local Leaderboard Only', '#FF9800');
             }
         } catch (error) {
             console.error('❌ Supabase connection failed:', error);
+            console.log('📱 FALLING BACK TO LOCAL LEADERBOARD');
             this.isOnline = false;
+            this.showConnectionStatus('❌ Connection Failed - Using Local Mode', '#f44336');
         }
     }
 
@@ -49,18 +57,19 @@ class LeaderboardManager {
             
             if (error) {
                 console.error('❌ Supabase query error:', error);
+                console.error('🔍 Error details:', {
+                    message: error.message,
+                    code: error.code,
+                    hint: error.hint
+                });
                 throw error;
             }
             
-            console.log('✅ Supabase connection test successful');
+            console.log('✅ Supabase connection test successful!');
+            console.log('🎯 Query returned:', data ? data.length + ' record(s)' : 'empty result');
             this.isOnline = true;
         } catch (error) {
             console.error('❌ Leaderboard table access failed:', error);
-            console.error('🔍 Error details:', {
-                message: error.message,
-                code: error.code,
-                hint: error.hint
-            });
             this.isOnline = false;
         }
     }
@@ -191,10 +200,12 @@ class LeaderboardManager {
         
         if (!this.isOnline || !this.supabase) {
             console.log('📱 Offline mode - score saved locally only');
+            this.showConnectionStatus('📱 Score saved locally (offline mode)', '#FF9800');
             return false;
         }
 
         try {
+            console.log('🌐 Submitting to global Supabase leaderboard...');
             const { data, error } = await this.supabase
                 .from('leaderboard')
                 .insert([
@@ -206,11 +217,13 @@ class LeaderboardManager {
 
             if (error) throw error;
             
-            console.log('✅ Score submitted to global leaderboard');
+            console.log('✅ Score submitted to global leaderboard successfully!');
+            this.showConnectionStatus('🌐 Score submitted to global leaderboard!', '#4CAF50');
             this.refreshLeaderboard();
             return true;
         } catch (error) {
-            console.error('❌ Failed to submit score:', error);
+            console.error('❌ Failed to submit score to Supabase:', error);
+            this.showConnectionStatus('❌ Global submit failed - saved locally', '#f44336');
             return false;
         }
     }
@@ -268,16 +281,31 @@ class LeaderboardManager {
         const playerCountElement = document.getElementById('playerCount');
         if (!playerCountElement) return;
 
-        const isOnlineText = this.isOnline ? '🌐 Global' : '📱 Local';
-        const topScore = scores.length > 0 ? scores[0].score : 0;
+        const onlinePlayersCount = Object.keys(window.game?.scene?.scenes[0]?.players || {}).length || 1;
+        
+        // Clear status indicators with emojis and colors
+        let statusIndicator, statusText, statusColor;
+        
+        if (this.isOnline) {
+            statusIndicator = '🌐 GLOBAL';
+            statusText = 'Connected to Supabase';
+            statusColor = '#4CAF50'; // Green
+        } else {
+            statusIndicator = '📱 LOCAL';
+            statusText = 'Offline Mode';
+            statusColor = '#FF9800'; // Orange
+        }
         
         const leaderboardHTML = `
             <div style="font-size: 12px; text-align: left;">
                 <div style="margin-bottom: 5px;">
-                    Players Online: ${Object.keys(window.game?.scene?.scenes[0]?.players || {}).length || 1}
+                    Players Online: ${onlinePlayersCount}
                 </div>
-                <div style="color: #FFD700; margin-bottom: 3px;">
-                    ${isOnlineText} Leaderboard:
+                <div style="color: ${statusColor}; margin-bottom: 3px; font-weight: bold; display: flex; align-items: center; gap: 5px;">
+                    ${statusIndicator}
+                    <span style="font-size: 8px; background: ${statusColor}; color: white; padding: 2px 6px; border-radius: 10px;">
+                        ${statusText}
+                    </span>
                 </div>
                 ${scores.slice(0, 3).map((score, index) => `
                     <div style="font-size: 10px; color: ${index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : '#CD7F32'};">
@@ -345,6 +373,43 @@ class LeaderboardManager {
                 });
             }
         });
+    }
+
+    showConnectionStatus(message, color) {
+        // Create a temporary status notification
+        const notification = document.createElement('div');
+        notification.innerHTML = message;
+        notification.style.cssText = `
+            position: fixed; top: 80px; left: 10px; z-index: 1000;
+            background: ${color}; color: white; padding: 8px 15px;
+            border-radius: 8px; font-size: 14px; font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease-out;
+        `;
+        
+        // Add animation keyframes
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(-100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        document.body.appendChild(notification);
+        
+        // Remove after 4 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
+            }
+        }, 4000);
     }
 }
 
