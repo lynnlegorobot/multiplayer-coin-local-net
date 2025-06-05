@@ -370,6 +370,108 @@ class SoundEffectsManager {
         console.log('🎵 Sound effects:', this.isEnabled ? 'ON' : 'OFF');
         return this.isEnabled;
     }
+
+    // 💚 Extra Life Gained Sound - Triumphant chord
+    playExtraLife() {
+        if (!this.isEnabled) return;
+        this.resumeAudio();
+
+        const now = this.audioContext.currentTime;
+        
+        // Play uplifting major chord progression
+        const chords = [
+            { freqs: [261.63, 329.63, 392.00], time: 0,   duration: 0.3 }, // C major
+            { freqs: [293.66, 369.99, 440.00], time: 0.2, duration: 0.4 }  // D major
+        ];
+        
+        chords.forEach(chord => {
+            chord.freqs.forEach(freq => {
+                const osc = this.audioContext.createOscillator();
+                const gain = this.audioContext.createGain();
+                
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now + chord.time);
+                
+                gain.gain.setValueAtTime(0, now + chord.time);
+                gain.gain.linearRampToValueAtTime(0.2, now + chord.time + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + chord.time + chord.duration);
+                
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                
+                osc.start(now + chord.time);
+                osc.stop(now + chord.time + chord.duration);
+            });
+        });
+    }
+
+    // 💔 Life Lost Sound - Dramatic descending tone
+    playLifeLost() {
+        if (!this.isEnabled) return;
+        this.resumeAudio();
+
+        const now = this.audioContext.currentTime;
+        const duration = 0.8;
+
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, now); // Low A
+        osc.frequency.exponentialRampToValueAtTime(110, now + duration);
+        
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+        
+        // Add tremolo effect
+        const tremolo = this.audioContext.createGain();
+        const lfo = this.audioContext.createOscillator();
+        lfo.frequency.setValueAtTime(6, now); // 6Hz tremolo
+        lfo.connect(tremolo.gain);
+        
+        osc.connect(tremolo);
+        tremolo.connect(gain);
+        gain.connect(this.masterGain);
+        
+        osc.start(now);
+        lfo.start(now);
+        osc.stop(now + duration);
+        lfo.stop(now + duration);
+    }
+
+    // ☠️ Player Eliminated Sound - Game over tone
+    playEliminated() {
+        if (!this.isEnabled) return;
+        this.resumeAudio();
+
+        const now = this.audioContext.currentTime;
+        
+        // Classic "game over" descending minor chord
+        const notes = [
+            { freq: 220, time: 0 },    // A
+            { freq: 196, time: 0.3 },  // G
+            { freq: 175, time: 0.6 },  // F
+            { freq: 147, time: 0.9 }   // D
+        ];
+        
+        notes.forEach(note => {
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+            
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(note.freq, now + note.time);
+            
+            gain.gain.setValueAtTime(0, now + note.time);
+            gain.gain.linearRampToValueAtTime(0.4, now + note.time + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + note.time + 0.5);
+            
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            
+            osc.start(now + note.time);
+            osc.stop(now + note.time + 0.5);
+        });
+    }
 }
 
 // Create global sound manager

@@ -1,5 +1,5 @@
 // Version tracking for debugging
-const GAME_VERSION = 'Multiplayer v2024.12.28.3';
+const GAME_VERSION = 'Multiplayer v2024.12.28.4 - Health System';
 console.log('📋 Game Version:', GAME_VERSION);
 
 // Update version display in UI
@@ -22,6 +22,13 @@ class GameScene extends Phaser.Scene {
         this.gameStartTime = Date.now();
         this.playerInfo = {};
         this.playerNames = {};
+        
+        // Health system
+        this.lives = 3;
+        this.hitCount = 0;
+        this.coinsToLife = 100;
+        this.isKnockedBack = false;
+        this.knockbackVelocity = { x: 0, y: 0 };
     }
 
     preload() {
@@ -63,6 +70,9 @@ class GameScene extends Phaser.Scene {
 
         // Update score display
         this.updateUI();
+        
+        // Initialize health UI
+        this.updateHealthUI();
         
         // Add background pattern (same as single-player)
         this.createBackground();
@@ -282,6 +292,58 @@ class GameScene extends Phaser.Scene {
                 }
             }
         });
+
+        // Handle health updates
+        this.socket.on('healthUpdate', (data) => {
+            if (data.playerId === this.socket.id) {
+                this.lives = data.lives;
+                this.hitCount = data.hitCount;
+                this.coinsToLife = data.coinsToLife;
+                this.updateHealthUI();
+                console.log(`💖 Health updated - Lives: ${this.lives}, Hits: ${this.hitCount}/10, Coins to life: ${this.coinsToLife}`);
+            }
+        });
+
+        // Handle extra life gained
+        this.socket.on('extraLife', (data) => {
+            if (data.playerId === this.socket.id) {
+                console.log('💚 Extra life gained!');
+                this.showExtraLifeEffect();
+                if (window.soundManager) {
+                    window.soundManager.playExtraLife();
+                }
+            }
+        });
+
+        // Handle life lost
+        this.socket.on('lifeLost', (data) => {
+            if (data.playerId === this.socket.id) {
+                console.log('💔 Life lost!');
+                this.showLifeLostEffect();
+                if (window.soundManager) {
+                    window.soundManager.playLifeLost();
+                }
+            }
+        });
+
+        // Handle elimination
+        this.socket.on('eliminated', (data) => {
+            if (data.playerId === this.socket.id) {
+                console.log('☠️ You have been eliminated!');
+                if (window.soundManager) {
+                    window.soundManager.playEliminated();
+                }
+                this.showEliminationScreen(data.finalScore);
+            }
+        });
+
+        // Handle knockback effects
+        this.socket.on('knockback', (data) => {
+            if (this.myPlayer) {
+                this.applyKnockback(data.direction);
+                console.log('💫 Knockback applied:', data.direction);
+            }
+        });
     }
 
     setupInput() {
@@ -409,6 +471,13 @@ class GameScene extends Phaser.Scene {
                         
                         this.lastCollisionSound = now;
                     }
+                    
+                    // Send hit to server (with longer cooldown to prevent spam)
+                    if (now - (this.lastHitTime || 0) > 1000) { // Max one hit per second
+                        this.socket.emit('playerHit', { targetPlayerId: playerInfo.id });
+                        this.lastHitTime = now;
+                        console.log('⚔️ Hit sent to server for player:', playerInfo.id);
+                    }
                 });
             }
         }
@@ -420,8 +489,9 @@ class GameScene extends Phaser.Scene {
     setupPlayerCollisions() {
         if (!this.myPlayer) return;
         
-        // Throttle collision sounds to prevent spam
+        // Throttle collision sounds and hits to prevent spam
         this.lastCollisionSound = 0;
+        this.lastHitTime = 0;
         
         Object.keys(this.players).forEach(playerId => {
             if (playerId !== this.socket.id && this.players[playerId]) {
@@ -437,6 +507,13 @@ class GameScene extends Phaser.Scene {
                         }
                         
                         this.lastCollisionSound = now;
+                    }
+                    
+                    // Send hit to server (with longer cooldown to prevent spam)
+                    if (now - this.lastHitTime > 1000) { // Max one hit per second
+                        this.socket.emit('playerHit', { targetPlayerId: playerId });
+                        this.lastHitTime = now;
+                        console.log('⚔️ Hit sent to server for player:', playerId);
                     }
                 });
             }
@@ -623,6 +700,14 @@ class GameScene extends Phaser.Scene {
         // Apply velocity
         this.myPlayer.setVelocity(velocityX, velocityY);
         
+        // Apply knockback if active
+        if (this.isKnockedBack) {
+            this.myPlayer.setVelocity(
+                this.knockbackVelocity.x, 
+                this.knockbackVelocity.y
+            );
+        }
+        
         // Rotation based on movement direction (enhanced like single-player)
         if (velocityX !== 0 || velocityY !== 0) {
             const angle = Math.atan2(velocityY, velocityX);
@@ -688,6 +773,159 @@ class GameScene extends Phaser.Scene {
             await window.leaderboardManager.submitScore(this.score);
             window.leaderboardManager.saveLocalScore(this.score); // Also save locally as backup
         }
+    }
+
+    // Update health UI
+    updateHealthUI() {
+        const livesElement = document.getElementById('lives');
+        const hitCountElement = document.getElementById('hitCount');
+        const coinsToLifeElement = document.getElementById('coinsToLife');
+        
+        if (livesElement) livesElement.textContent = this.lives;
+        if (hitCountElement) hitCountElement.textContent = this.hitCount;
+        if (coinsToLifeElement) coinsToLifeElement.textContent = this.coinsToLife;
+    }
+
+    // Apply knockback effect
+    applyKnockback(direction) {
+        if (!this.myPlayer || this.isKnockedBack) return;
+        
+        this.isKnockedBack = true;
+        const knockbackForce = 200;
+        
+        if (direction === 'victim') {
+            // Push away from collision
+            const angle = Math.random() * Math.PI * 2; // Random direction
+            this.knockbackVelocity.x = Math.cos(angle) * knockbackForce;
+            this.knockbackVelocity.y = Math.sin(angle) * knockbackForce;
+        } else {
+            // Slight recoil for attacker
+            const angle = Math.random() * Math.PI * 2;
+            this.knockbackVelocity.x = Math.cos(angle) * knockbackForce * 0.3;
+            this.knockbackVelocity.y = Math.sin(angle) * knockbackForce * 0.3;
+        }
+        
+        // Reset knockback after short duration
+        setTimeout(() => {
+            this.isKnockedBack = false;
+            this.knockbackVelocity.x = 0;
+            this.knockbackVelocity.y = 0;
+        }, 300);
+    }
+
+    // Show extra life visual effect
+    showExtraLifeEffect() {
+        if (!this.cameras?.main) return;
+        
+        const camera = this.cameras.main;
+        camera.flash(500, 0, 255, 0); // Green flash
+        
+        const centerX = camera.centerX;
+        const centerY = camera.centerY;
+        
+        const lifeText = this.add.text(centerX, centerY - 100, '💚 EXTRA LIFE! 💚', {
+            fontSize: '32px',
+            fontStyle: 'bold',
+            color: '#00FF00',
+            stroke: '#000000',
+            strokeThickness: 4
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: lifeText,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            yoyo: true,
+            repeat: 2,
+            duration: 300,
+            onComplete: () => {
+                this.tweens.add({
+                    targets: lifeText,
+                    alpha: 0,
+                    duration: 1000,
+                    onComplete: () => lifeText.destroy()
+                });
+            }
+        });
+    }
+
+    // Show life lost visual effect
+    showLifeLostEffect() {
+        if (!this.cameras?.main) return;
+        
+        const camera = this.cameras.main;
+        camera.shake(500, 0.02);
+        camera.flash(800, 255, 0, 0); // Red flash
+        
+        const centerX = camera.centerX;
+        const centerY = camera.centerY;
+        
+        const lostText = this.add.text(centerX, centerY - 100, '💔 LIFE LOST! 💔', {
+            fontSize: '32px',
+            fontStyle: 'bold',
+            color: '#FF0000',
+            stroke: '#000000',
+            strokeThickness: 4
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: lostText,
+            scaleX: 1.3,
+            scaleY: 1.3,
+            yoyo: true,
+            repeat: 1,
+            duration: 400,
+            onComplete: () => {
+                this.tweens.add({
+                    targets: lostText,
+                    alpha: 0,
+                    duration: 1500,
+                    onComplete: () => lostText.destroy()
+                });
+            }
+        });
+    }
+
+    // Show elimination screen
+    showEliminationScreen(finalScore) {
+        // Submit final score
+        this.submitFinalScore();
+        
+        // Create elimination overlay
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); display: flex; align-items: center;
+            justify-content: center; z-index: 5000; padding: 20px; box-sizing: border-box;
+        `;
+        
+        modal.innerHTML = `
+            <div style="background: #2a2a2a; padding: 40px; border-radius: 20px; text-align: center; max-width: 500px; width: 100%; border: 3px solid #ff4444;">
+                <h1 style="color: #ff4444; margin-bottom: 20px; font-size: 36px;">☠️ ELIMINATED! ☠️</h1>
+                <div style="color: white; font-size: 24px; margin-bottom: 15px;">
+                    <strong>Final Score: ${finalScore}</strong>
+                </div>
+                <div style="color: #ccc; font-size: 16px; margin-bottom: 30px;">
+                    You ran out of lives! Better luck next time!
+                </div>
+                <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                    <button onclick="location.reload()" 
+                            ontouchend="event.preventDefault(); location.reload();"
+                            style="padding: 15px 30px; background: #4CAF50; color: white; border: none; 
+                                   border-radius: 10px; cursor: pointer; font-size: 18px; font-weight: bold; min-height: 50px;">
+                        🔄 Play Again
+                    </button>
+                    <button onclick="showFullLeaderboard(); this.parentElement.parentElement.parentElement.remove();" 
+                            ontouchend="event.preventDefault(); showFullLeaderboard(); this.parentElement.parentElement.parentElement.remove();"
+                            style="padding: 15px 30px; background: #2196F3; color: white; border: none; 
+                                   border-radius: 10px; cursor: pointer; font-size: 18px; font-weight: bold; min-height: 50px;">
+                        🏆 Leaderboard
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
     }
 }
 

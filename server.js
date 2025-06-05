@@ -70,7 +70,10 @@ io.on('connection', (socket) => {
             y: spawnY,
             color: Math.random() * 0xffffff,
             name: playerData?.playerName || 'Anonymous',
-            score: 0
+            score: 0,
+            lives: 3,           // Start with 3 lives
+            hitCount: 0,        // Track hits towards losing a life
+            coinsToLife: 100    // Coins needed for extra life
         };
 
         // Send existing players to new player
@@ -82,7 +85,7 @@ io.on('connection', (socket) => {
         // Notify all players about new player
         socket.broadcast.emit('newPlayer', players[socket.id]);
         
-        console.log(`✅ Player ${players[socket.id].name} joined at (${spawnX.toFixed(1)}, ${spawnY.toFixed(1)})`);
+        console.log(`✅ Player ${players[socket.id].name} joined with ${players[socket.id].lives} lives`);
         console.log(`👥 Total players: ${Object.keys(players).length}`);
     });
 
@@ -109,6 +112,20 @@ io.on('connection', (socket) => {
             gameState.items.splice(itemIndex, 1);
             players[socket.id].score += 10;
             
+            // Check for extra life (every 100 coins)
+            players[socket.id].coinsToLife -= 10;
+            if (players[socket.id].coinsToLife <= 0) {
+                players[socket.id].lives += 1;
+                players[socket.id].coinsToLife = 100; // Reset counter
+                console.log(`💚 Player ${players[socket.id].name} gained an extra life! Now has ${players[socket.id].lives} lives`);
+                
+                // Notify player of extra life
+                socket.emit('extraLife', { 
+                    lives: players[socket.id].lives,
+                    playerId: socket.id 
+                });
+            }
+            
             console.log(`✅ Item ${itemId} collected! New score: ${players[socket.id].score}`);
             console.log(`📊 Items remaining: ${gameState.items.length}`);
             
@@ -126,8 +143,65 @@ io.on('connection', (socket) => {
                 collectedAt: { x: collectedItem.x, y: collectedItem.y }
             });
             io.emit('scoreUpdate', { playerId: socket.id, score: players[socket.id].score });
+            io.emit('healthUpdate', { 
+                playerId: socket.id, 
+                lives: players[socket.id].lives,
+                hitCount: players[socket.id].hitCount,
+                coinsToLife: players[socket.id].coinsToLife
+            });
         } else {
             console.log(`❌ Item ${itemId} not found - already collected?`);
+        }
+    });
+
+    // Handle player collision damage
+    socket.on('playerHit', (data) => {
+        const { targetPlayerId } = data;
+        
+        if (players[targetPlayerId]) {
+            players[targetPlayerId].hitCount += 1;
+            console.log(`💥 Player ${players[targetPlayerId].name} hit! Count: ${players[targetPlayerId].hitCount}/10`);
+            
+            // Check if player loses a life
+            if (players[targetPlayerId].hitCount >= 10) {
+                players[targetPlayerId].lives -= 1;
+                players[targetPlayerId].hitCount = 0; // Reset hit counter
+                
+                console.log(`💔 Player ${players[targetPlayerId].name} lost a life! Now has ${players[targetPlayerId].lives} lives`);
+                
+                // Check if player is eliminated
+                if (players[targetPlayerId].lives <= 0) {
+                    console.log(`☠️ Player ${players[targetPlayerId].name} eliminated with score ${players[targetPlayerId].score}!`);
+                    
+                    // Notify player of elimination
+                    io.to(targetPlayerId).emit('eliminated', {
+                        finalScore: players[targetPlayerId].score,
+                        playerId: targetPlayerId
+                    });
+                    
+                    // Remove player from game
+                    delete players[targetPlayerId];
+                    io.emit('playerDisconnected', targetPlayerId);
+                } else {
+                    // Notify of life lost
+                    io.to(targetPlayerId).emit('lifeLost', {
+                        lives: players[targetPlayerId].lives,
+                        playerId: targetPlayerId
+                    });
+                }
+            }
+            
+            // Broadcast health update to all players
+            io.emit('healthUpdate', { 
+                playerId: targetPlayerId, 
+                lives: players[targetPlayerId].lives,
+                hitCount: players[targetPlayerId].hitCount,
+                coinsToLife: players[targetPlayerId].coinsToLife
+            });
+            
+            // Send knockback to both players
+            socket.emit('knockback', { direction: 'attacker' });
+            io.to(targetPlayerId).emit('knockback', { direction: 'victim' });
         }
     });
 
