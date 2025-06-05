@@ -1,5 +1,5 @@
 // Version tracking for debugging
-const GAME_VERSION = 'Multiplayer v2024.12.28.4 - Health System';
+const GAME_VERSION = 'Multiplayer v2024.12.28.5 - Mobile UX';
 console.log('📋 Game Version:', GAME_VERSION);
 
 // Update version display in UI
@@ -358,8 +358,8 @@ class GameScene extends Phaser.Scene {
         const joystickKnob = document.getElementById('joystick-knob');
         
         let isDragging = false;
-        const joystickCenter = { x: 60, y: 60 }; // Center of 120px joystick
-        const joystickRadius = 40;
+        const joystickCenter = { x: 50, y: 50 }; // Center of 100px joystick
+        const joystickRadius = 34;
 
         const handleStart = (e) => {
             e.preventDefault();
@@ -382,7 +382,7 @@ class GameScene extends Phaser.Scene {
             const distance = Math.sqrt(x * x + y * y);
             
             if (distance <= joystickRadius) {
-                joystickKnob.style.transform = `translate(${x - 20}px, ${y - 20}px)`;
+                joystickKnob.style.transform = `translate(${x - 16}px, ${y - 16}px)`;
                 this.joystickData.x = x / joystickRadius;
                 this.joystickData.y = y / joystickRadius;
             } else {
@@ -390,7 +390,7 @@ class GameScene extends Phaser.Scene {
                 const limitedX = Math.cos(angle) * joystickRadius;
                 const limitedY = Math.sin(angle) * joystickRadius;
                 
-                joystickKnob.style.transform = `translate(${limitedX - 20}px, ${limitedY - 20}px)`;
+                joystickKnob.style.transform = `translate(${limitedX - 16}px, ${limitedY - 16}px)`;
                 this.joystickData.x = limitedX / joystickRadius;
                 this.joystickData.y = limitedY / joystickRadius;
             }

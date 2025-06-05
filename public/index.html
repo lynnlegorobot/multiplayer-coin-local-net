@@ -56,8 +56,8 @@
             position: absolute;
             bottom: 20px;
             right: 20px;
-            width: 120px;
-            height: 120px;
+            width: 100px;
+            height: 100px;
             background: rgba(255, 255, 255, 0.1);
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
@@ -72,8 +72,8 @@
         }
         
         #joystick-knob {
-            width: 40px;
-            height: 40px;
+            width: 32px;
+            height: 32px;
             background: rgba(255, 255, 255, 0.8);
             border-radius: 50%;
             position: absolute;
@@ -89,11 +89,11 @@
             bottom: 20px;
             left: 20px;
             color: rgba(255, 255, 255, 0.7);
-            font-size: 14px;
+            font-size: 12px;
             z-index: 100;
             background: rgba(0, 0, 0, 0.3);
-            padding: 8px 12px;
-            border-radius: 8px;
+            padding: 6px 10px;
+            border-radius: 6px;
             backdrop-filter: blur(10px);
         }
         
@@ -194,34 +194,43 @@
         }
         
         @media (max-width: 768px) {
-            #gameUI {
-                font-size: 16px;
-                padding: 8px 12px;
+            #minimalHUD {
+                padding: 6px 10px !important;
+            }
+            
+            #minimalHUD > div {
+                gap: 10px !important;
+                font-size: 14px !important;
+            }
+            
+            #expandBtn {
+                padding: 3px 6px !important;
+                font-size: 11px !important;
+                min-height: 28px !important;
+            }
+            
+            #expandedHUD {
+                max-width: 250px !important;
+                padding: 12px !important;
             }
             
             #joystick {
-                width: 100px;
-                height: 100px;
-                bottom: 15px;
-                right: 15px;
+                width: 80px !important;
+                height: 80px !important;
+                bottom: 15px !important;
+                right: 15px !important;
             }
             
             #joystick-knob {
-                width: 35px;
-                height: 35px;
+                width: 28px !important;
+                height: 28px !important;
             }
             
             #instructions {
-                font-size: 12px;
-                bottom: 15px;
-                left: 15px;
-            }
-            
-            #shareButton {
-                font-size: 14px;
-                padding: 10px 15px;
-                min-height: 44px; /* iOS minimum touch target */
-                border-radius: 10px;
+                font-size: 10px !important;
+                bottom: 15px !important;
+                left: 15px !important;
+                padding: 4px 8px !important;
             }
             
             #qrContent {
@@ -236,8 +245,8 @@
             
             /* Ensure buttons are touch-friendly */
             button {
-                min-height: 44px;
-                font-size: 16px;
+                min-height: 36px;
+                font-size: 11px;
             }
         }
         
@@ -261,69 +270,98 @@
 
     <div id="gameContainer">
         <div id="gameUI" style="position: absolute; top: 10px; left: 10px; z-index: 100; color: white; font-family: Arial; pointer-events: none;">
-            <div style="font-size: 18px; margin-bottom: 5px; pointer-events: auto;">
-                Score: <span id="score">0</span>
-            </div>
-            <div style="font-size: 14px; margin-bottom: 5px; pointer-events: auto; cursor: pointer;" id="playerNameText">
-                Loading...
-            </div>
-            
-            <!-- Health/Lives Display -->
-            <div id="healthDisplay" style="font-size: 14px; margin-bottom: 5px; pointer-events: auto; color: #ff6b6b;">
-                ❤️ Lives: <span id="lives">3</span> | Hits: <span id="hitCount">0</span>/10
-            </div>
-            <div id="lifeProgress" style="font-size: 12px; margin-bottom: 5px; pointer-events: auto; color: #90EE90;">
-                💰 <span id="coinsToLife">100</span> coins for extra life
-            </div>
-            
-            <div id="playerCount" style="font-size: 12px; pointer-events: auto;">
-                Players: 1
+            <!-- Minimal Always-Visible HUD -->
+            <div id="minimalHUD" style="pointer-events: auto; background: rgba(0,0,0,0.6); padding: 8px 12px; border-radius: 8px; backdrop-filter: blur(5px);">
+                <div style="display: flex; align-items: center; gap: 15px; font-size: 16px; font-weight: bold;">
+                    <span>💰 <span id="score">0</span></span>
+                    <span style="color: #ff6b6b;">❤️ <span id="lives">3</span></span>
+                    <span style="color: #ffa500; font-size: 14px;"><span id="hitCount">0</span>/10</span>
+                    <button id="expandBtn" onclick="toggleExpandedHUD()" 
+                            ontouchend="event.preventDefault(); toggleExpandedHUD();"
+                            style="background: rgba(255,255,255,0.2); border: none; color: white; 
+                                   padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; min-height: 32px;">
+                        ⚙️
+                    </button>
+                </div>
             </div>
             
-            <!-- Game Control Buttons -->
-            <div style="margin-top: 15px; pointer-events: auto; display: flex; gap: 10px; flex-wrap: wrap;">
-                <button id="quitBtn" 
-                        onclick="playButtonSound(); quitGame()" 
-                        ontouchend="event.preventDefault(); playButtonSound(); quitGame();"
-                        style="padding: 8px 15px; background: #f44336; color: white; border: none; 
-                               border-radius: 5px; cursor: pointer; font-size: 12px; min-height: 40px; min-width: 100px;">
-                    🚪 Quit & Save Score
+            <!-- Expandable Detailed HUD (Hidden by default) -->
+            <div id="expandedHUD" style="display: none; pointer-events: auto; background: rgba(0,0,0,0.8); 
+                                          padding: 15px; border-radius: 12px; backdrop-filter: blur(10px); 
+                                          margin-top: 10px; max-width: 280px;">
+                
+                <!-- Player Info -->
+                <div style="margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 8px;">
+                    <div style="font-size: 14px; margin-bottom: 4px; cursor: pointer;" id="playerNameText" 
+                         onclick="showNameCustomization()" ontouchend="event.preventDefault(); showNameCustomization();">
+                        <span style="color: #87CEEB;">👤</span> Loading...
+                    </div>
+                    <div style="font-size: 12px; color: #90EE90;">
+                        💰 <span id="coinsToLife">100</span> coins for extra life
+                    </div>
+                </div>
+                
+                <!-- Game Stats -->
+                <div id="playerCount" style="font-size: 12px; margin-bottom: 12px; color: #ddd;">
+                    Players: 1
+                </div>
+                
+                <!-- Control Buttons -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+                    <button id="quitBtn" onclick="playButtonSound(); quitGame()" 
+                            ontouchend="event.preventDefault(); playButtonSound(); quitGame();"
+                            style="padding: 8px 12px; background: #f44336; color: white; border: none; 
+                                   border-radius: 6px; cursor: pointer; font-size: 11px; min-height: 36px;">
+                        🚪 Quit
+                    </button>
+                    <button id="leaderboardBtn" onclick="playButtonSound(); showFullLeaderboard()" 
+                            ontouchend="event.preventDefault(); playButtonSound(); showFullLeaderboard();"
+                            style="padding: 8px 12px; background: #2196F3; color: white; border: none; 
+                                   border-radius: 6px; cursor: pointer; font-size: 11px; min-height: 36px;">
+                        🏆 Board
+                    </button>
+                    <button id="nameBtn" onclick="playButtonSound(); showNameCustomization()" 
+                            ontouchend="event.preventDefault(); playButtonSound(); showNameCustomization();"
+                            style="padding: 8px 12px; background: #4CAF50; color: white; border: none; 
+                                   border-radius: 6px; cursor: pointer; font-size: 11px; min-height: 36px;">
+                        ✏️ Name
+                    </button>
+                    <button id="soundBtn" onclick="playButtonSound(); toggleSound()" 
+                            ontouchend="event.preventDefault(); playButtonSound(); toggleSound();"
+                            style="padding: 8px 12px; background: #9C27B0; color: white; border: none; 
+                                   border-radius: 6px; cursor: pointer; font-size: 11px; min-height: 36px;">
+                        🔊 Sound
+                    </button>
+                </div>
+                
+                <!-- Secondary Buttons -->
+                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                    <button onclick="playButtonSound(); showQR()" 
+                            ontouchend="event.preventDefault(); playButtonSound(); showQR();"
+                            style="flex: 1; padding: 6px 10px; background: #00BCD4; color: white; border: none; 
+                                   border-radius: 6px; cursor: pointer; font-size: 10px; min-height: 32px;">
+                        📱 Share Game
+                    </button>
+                </div>
+                
+                <!-- Status Info -->
+                <div style="font-size: 10px; color: #888; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">
+                    <div id="scoreStatus">💾 Scores auto-save when you quit</div>
+                    <div id="versionDisplay" style="margin-top: 4px;">
+                        v2024.12.28 - <span id="gameVersion">Loading...</span>
+                    </div>
+                </div>
+                
+                <!-- Close Button -->
+                <button onclick="toggleExpandedHUD()" 
+                        ontouchend="event.preventDefault(); toggleExpandedHUD();"
+                        style="position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.2); 
+                               color: white; border: none; border-radius: 50%; width: 24px; height: 24px; 
+                               cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;">
+                    ✕
                 </button>
-                <button id="leaderboardBtn" 
-                        onclick="playButtonSound(); showFullLeaderboard()" 
-                        ontouchend="event.preventDefault(); playButtonSound(); showFullLeaderboard();"
-                        style="padding: 8px 15px; background: #2196F3; color: white; border: none; 
-                               border-radius: 5px; cursor: pointer; font-size: 12px; min-height: 40px; min-width: 100px;">
-                    🏆 View Leaderboard
-                </button>
-                <button id="nameBtn" 
-                        onclick="playButtonSound(); showNameCustomization()" 
-                        ontouchend="event.preventDefault(); playButtonSound(); showNameCustomization();"
-                        style="padding: 8px 15px; background: #4CAF50; color: white; border: none; 
-                               border-radius: 5px; cursor: pointer; font-size: 12px; min-height: 40px; min-width: 80px;">
-                    ✏️ Name
-                </button>
-                <button id="soundBtn" 
-                        onclick="playButtonSound(); toggleSound()" 
-                        ontouchend="event.preventDefault(); playButtonSound(); toggleSound();"
-                        style="padding: 8px 15px; background: #9C27B0; color: white; border: none; 
-                               border-radius: 5px; cursor: pointer; font-size: 12px; min-height: 40px; min-width: 60px;">
-                    🔊 Sound
-                </button>
-            </div>
-            
-            <!-- Score Recording Status -->
-            <div id="scoreStatus" style="font-size: 10px; color: #90EE90; margin-top: 10px; pointer-events: auto;">
-                💾 Scores auto-save when you quit or disconnect
-            </div>
-            
-            <!-- Version Display for debugging -->
-            <div id="versionDisplay" style="font-size: 8px; color: #888; margin-top: 5px; pointer-events: auto;">
-                v2024.12.28 - <span id="gameVersion">Loading...</span>
             </div>
         </div>
-        
-        <button id="shareButton" onclick="showQR()">📱 Share QR</button>
         
         <div id="gameCanvas"></div>
         
@@ -865,6 +903,41 @@
             // Show quit confirmation and score summary
             showQuitSummary();
         }
+        
+        // Toggle expanded HUD
+        function toggleExpandedHUD() {
+            const expandedHUD = document.getElementById('expandedHUD');
+            const expandBtn = document.getElementById('expandBtn');
+            
+            if (expandedHUD.style.display === 'none' || expandedHUD.style.display === '') {
+                expandedHUD.style.display = 'block';
+                expandBtn.innerHTML = '▲';
+                expandBtn.style.background = 'rgba(255,255,255,0.4)';
+                console.log('📱 Expanded HUD opened');
+                
+                // Play button sound
+                if (window.soundManager) {
+                    window.soundManager.playButtonClick();
+                }
+            } else {
+                expandedHUD.style.display = 'none';
+                expandBtn.innerHTML = '⚙️';
+                expandBtn.style.background = 'rgba(255,255,255,0.2)';
+                console.log('📱 Expanded HUD closed');
+            }
+        }
+        
+        // Auto-hide expanded HUD when touching game area
+        document.addEventListener('touchstart', function(e) {
+            const expandedHUD = document.getElementById('expandedHUD');
+            const gameUI = document.getElementById('gameUI');
+            
+            // Check if touch is outside the game UI
+            if (expandedHUD && expandedHUD.style.display === 'block' && 
+                !gameUI.contains(e.target)) {
+                toggleExpandedHUD();
+            }
+        });
         
         function showNameCustomization() {
             console.log('✏️ Opening name customization...');
