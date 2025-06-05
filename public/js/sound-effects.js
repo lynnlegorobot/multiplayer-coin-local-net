@@ -36,71 +36,72 @@ class SoundEffectsManager {
         }
     }
 
-    // 🪙 Coin Collection Sound - Classic Mario/Sonic style pickup
+    // 🪙 Coin Collection Sound - Simple melodic tones (like classic Mario)
     playCoinCollect() {
         if (!this.isEnabled) return;
         this.resumeAudio();
 
         const now = this.audioContext.currentTime;
-        const duration = 0.25; // Shorter, snappier sound
+        
+        // Play a simple C major arpeggio: C - E - G (very classic and pleasant)
+        const notes = [
+            { freq: 523.25, time: 0,    duration: 0.1 }, // C5
+            { freq: 659.25, time: 0.07, duration: 0.1 }, // E5  
+            { freq: 783.99, time: 0.14, duration: 0.15 } // G5
+        ];
+        
+        notes.forEach(note => {
+            const osc = this.audioContext.createOscillator();
+            const gain = this.audioContext.createGain();
+            
+            // Simple triangle wave for soft, pleasant tone
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(note.freq, now + note.time);
+            
+            // Quick attack, smooth decay
+            gain.gain.setValueAtTime(0, now + note.time);
+            gain.gain.linearRampToValueAtTime(0.3, now + note.time + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + note.time + note.duration);
+            
+            osc.connect(gain);
+            gain.connect(this.masterGain);
+            
+            osc.start(now + note.time);
+            osc.stop(now + note.time + note.duration);
+        });
+    }
 
-        // Main tone - bright, bell-like sound (like Mario coin)
-        const osc1 = this.audioContext.createOscillator();
-        const gain1 = this.audioContext.createGain();
+    // 💥 Player Collision Sound - Quick impact sound
+    playPlayerCollision() {
+        if (!this.isEnabled) return;
+        this.resumeAudio();
+
+        const now = this.audioContext.currentTime;
+        const duration = 0.15;
+
+        // Impact sound - quick, punchy
+        const osc = this.audioContext.createOscillator();
+        const gain = this.audioContext.createGain();
         
-        osc1.type = 'triangle'; // More bell-like than square
-        osc1.frequency.setValueAtTime(1046.5, now); // C6 - bright and clear
-        osc1.frequency.exponentialRampToValueAtTime(2093, now + 0.05); // Quick upward sweep
-        osc1.frequency.exponentialRampToValueAtTime(1046.5, now + 0.1); // Back to fundamental
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(80, now + duration);
         
-        gain1.gain.setValueAtTime(0.5, now);
-        gain1.gain.exponentialRampToValueAtTime(0.01, now + duration);
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
         
-        // Harmonic overtone for richness (like Sonic ring)
-        const osc2 = this.audioContext.createOscillator();
-        const gain2 = this.audioContext.createGain();
-        
-        osc2.type = 'sine';
-        osc2.frequency.setValueAtTime(1567.98, now); // G6 - perfect fifth harmony
-        osc2.frequency.exponentialRampToValueAtTime(3135.96, now + 0.05);
-        osc2.frequency.exponentialRampToValueAtTime(1567.98, now + 0.1);
-        
-        gain2.gain.setValueAtTime(0.2, now);
-        gain2.gain.exponentialRampToValueAtTime(0.01, now + duration);
-        
-        // High frequency sparkle (classic pickup sound characteristic)
-        const osc3 = this.audioContext.createOscillator();
-        const gain3 = this.audioContext.createGain();
-        
-        osc3.type = 'sine';
-        osc3.frequency.setValueAtTime(4186, now); // Very high C
-        
-        gain3.gain.setValueAtTime(0.1, now);
-        gain3.gain.exponentialRampToValueAtTime(0.01, now + 0.1); // Quick fade
-        
-        // High-pass filter for crispness (like classic coin sounds)
+        // Add some filtering for a thud-like sound
         const filter = this.audioContext.createBiquadFilter();
-        filter.type = 'highpass';
-        filter.frequency.setValueAtTime(300, now);
-        filter.Q.setValueAtTime(1, now);
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(400, now);
+        filter.Q.setValueAtTime(2, now);
         
-        // Connect the audio graph
-        osc1.connect(gain1);
-        osc2.connect(gain2);
-        osc3.connect(gain3);
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
         
-        gain1.connect(filter);
-        gain2.connect(filter);
-        gain3.connect(this.masterGain); // Sparkle bypasses filter
-        filter.connect(this.masterGain);
-        
-        // Start and stop with precise timing
-        osc1.start(now);
-        osc2.start(now);
-        osc3.start(now);
-        osc1.stop(now + duration);
-        osc2.stop(now + duration);
-        osc3.stop(now + 0.1); // Sparkle ends earlier
+        osc.start(now);
+        osc.stop(now + duration);
     }
 
     // ✨ Opponent Collection - Subtle sparkle

@@ -1,7 +1,7 @@
 console.log('🎮 Game script loading...');
 
 // Version tracking for debugging
-const GAME_VERSION = 'Single-Player v2024.12.28.2';
+const GAME_VERSION = 'Single-Player v2024.12.28.3';
 console.log('📋 Game Version:', GAME_VERSION);
 
 // Update version display in UI
@@ -256,12 +256,17 @@ class GameScene extends Phaser.Scene {
             this.player = this.physics.add.sprite(600, 450, 'player');
             this.player.setDisplaySize(30, 30); // Match multiplayer version size
             this.player.setCollideWorldBounds(true);
+            
+            // Enable physics body for consistency with multiplayer
+            this.player.body.setSize(28, 28); // Slightly smaller hitbox for better feel
+            this.player.body.setOffset(1, 1); // Center the hitbox
 
             // Camera follows player
             this.cameras.main.startFollow(this.player, true, 0.05, 0.05);
             this.cameras.main.setZoom(1.2);
             
             console.log('✅ Player created at position:', this.player.x, this.player.y);
+            console.log('🛡️ Player physics body configured for collision detection');
         } catch (error) {
             console.error('❌ Error creating player:', error);
             throw error;

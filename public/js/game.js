@@ -1,5 +1,5 @@
 // Version tracking for debugging
-const GAME_VERSION = 'Multiplayer v2024.12.28.2';
+const GAME_VERSION = 'Multiplayer v2024.12.28.3';
 console.log('📋 Game Version:', GAME_VERSION);
 
 // Update version display in UI
@@ -360,6 +360,10 @@ class GameScene extends Phaser.Scene {
         player.setDisplaySize(30, 30);
         player.setTint(playerInfo.color);
         player.setCollideWorldBounds(true);
+        
+        // Enable physics body for collision detection
+        player.body.setSize(28, 28); // Slightly smaller hitbox for better feel
+        player.body.setOffset(1, 1); // Center the hitbox
 
         this.players[playerInfo.id] = player;
         
@@ -384,11 +388,61 @@ class GameScene extends Phaser.Scene {
             this.cameras.main.startFollow(player, true, 0.05, 0.05);
             this.cameras.main.setZoom(1.2);
             console.log('✅ Created my player:', this.playerInfo[playerInfo.id].name);
+            
+            // Set up collisions with other players AFTER creating my player
+            this.setupPlayerCollisions();
         } else {
             console.log('👤 Other player joined:', this.playerInfo[playerInfo.id].name);
+            
+            // If we already have our player, add collision with this new player
+            if (this.myPlayer) {
+                this.physics.add.collider(this.myPlayer, player, () => {
+                    // Add collision effects with throttling
+                    const now = Date.now();
+                    if (now - (this.lastCollisionSound || 0) > 500) { // Max once per 500ms
+                        console.log('💥 Player collision with:', this.playerInfo[playerInfo.id].name);
+                        
+                        // Play collision sound
+                        if (window.soundManager) {
+                            window.soundManager.playPlayerCollision();
+                        }
+                        
+                        this.lastCollisionSound = now;
+                    }
+                });
+            }
         }
 
         this.updateUI();
+    }
+
+    // Setup collision detection between our player and all other players
+    setupPlayerCollisions() {
+        if (!this.myPlayer) return;
+        
+        // Throttle collision sounds to prevent spam
+        this.lastCollisionSound = 0;
+        
+        Object.keys(this.players).forEach(playerId => {
+            if (playerId !== this.socket.id && this.players[playerId]) {
+                this.physics.add.collider(this.myPlayer, this.players[playerId], () => {
+                    // Add collision effects with throttling
+                    const now = Date.now();
+                    if (now - this.lastCollisionSound > 500) { // Max once per 500ms
+                        console.log('💥 Player collision with:', this.playerInfo[playerId]?.name || 'Unknown');
+                        
+                        // Play collision sound
+                        if (window.soundManager) {
+                            window.soundManager.playPlayerCollision();
+                        }
+                        
+                        this.lastCollisionSound = now;
+                    }
+                });
+            }
+        });
+        
+        console.log('🛡️ Player collision detection enabled');
     }
 
     createItem(itemData) {
