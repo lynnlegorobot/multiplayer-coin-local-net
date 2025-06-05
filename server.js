@@ -202,12 +202,37 @@ io.on('connection', (socket) => {
     // Handle player collision damage
     socket.on('playerHit', (data) => {
         const { targetPlayerId } = data;
-        
-        if (players[targetPlayerId]) {
+        const aggressorId = socket.id;
+
+        if (players[targetPlayerId] && players[aggressorId]) {
+            // --- DAMAGE LOGIC ---
             players[targetPlayerId].hitCount += 1;
             console.log(`💥 Player ${players[targetPlayerId].name} hit! Count: ${players[targetPlayerId].hitCount}/3`);
             
-            // Check if player loses a life
+            // --- COLOR CHANGE LOGIC ---
+            const darken = (colorNum, percent) => {
+                let t=percent<0?0:255,p=percent<0?percent*-1:percent,R=colorNum>>16,G=colorNum>>8&0x00FF,B=colorNum&0x0000FF;
+                R = Math.round((t-R)*p)+R;
+                G = Math.round((t-G)*p)+G;
+                B = Math.round((t-B)*p)+B;
+                return (R<<16)+(G<<8)+B;
+            };
+
+            const brighten = (colorNum, percent) => darken(colorNum, -percent);
+
+            const newVictimColor = darken(players[targetPlayerId].color, 0.2); // Darken by 20%
+            const newAggressorColor = brighten(players[aggressorId].color, 0.2); // Brighten by 20%
+
+            players[targetPlayerId].color = newVictimColor;
+            players[aggressorId].color = newAggressorColor;
+
+            io.emit('colorsUpdated', [
+                // Convert numbers to hex strings for reliable network transfer
+                { playerId: targetPlayerId, newColor: '#' + newVictimColor.toString(16).padStart(6, '0') },
+                { playerId: aggressorId, newColor: '#' + newAggressorColor.toString(16).padStart(6, '0') }
+            ]);
+            
+            // --- LIFE LOST LOGIC ---
             if (players[targetPlayerId].hitCount >= 3) {
                 players[targetPlayerId].lives -= 1;
                 players[targetPlayerId].hitCount = 0; // Reset hit counter

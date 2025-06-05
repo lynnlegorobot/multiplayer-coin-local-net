@@ -351,6 +351,26 @@ class GameScene extends Phaser.Scene {
             }
         });
 
+        // Handle color changes from hits
+        this.socket.on('colorsUpdated', (updates) => {
+            updates.forEach(update => {
+                const { playerId, newColor } = update;
+                const player = this.players[playerId];
+
+                if (player) {
+                    // Convert hex string "#RRGGBB" to a number 0xRRGGBB for Phaser
+                    const colorNumber = parseInt(newColor.replace(/^#/, ''), 16);
+                    console.log(`🎨 Player ${playerId} color changing to ${newColor} (0x${colorNumber.toString(16)})`);
+                    player.setTint(colorNumber);
+                    
+                    // Also update the stored color info, so it persists if player leaves/rejoins view
+                    if (this.playerInfo[playerId]) {
+                        this.playerInfo[playerId].color = newColor;
+                    }
+                }
+            });
+        });
+
         // Handle knockback effects
         this.socket.on('knockback', (data) => {
             if (this.myPlayer) {
