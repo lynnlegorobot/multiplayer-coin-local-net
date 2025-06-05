@@ -119,7 +119,8 @@ io.on('connection', (socket) => {
         
         // Generate a vibrant, random color using HSL
         const randomHue = Math.random();
-        const vibrantColor = hslToRgb(randomHue, 1.0, 0.6); // Full saturation, 60% lightness
+        // Use 0.5 lightness for maximum saturation/vividness
+        const vibrantColor = hslToRgb(randomHue, 1.0, 0.5); 
 
         players[socket.id] = {
             id: socket.id,
@@ -250,13 +251,13 @@ io.on('connection', (socket) => {
                 return ((255 - r) << 16) | ((255 - g) << 8) | (255 - b);
             };
 
-            // Victim gets darker
-            const newVictimColor = darken(players[targetPlayerId].color, 0.2);
+            // Victim gets darker (more intense effect)
+            const newVictimColor = darken(players[targetPlayerId].color, 0.3);
             players[targetPlayerId].color = newVictimColor;
 
-            // Aggressor gets a brighter, complementary color
+            // Aggressor gets a brighter, complementary color (more intense effect)
             const complementaryColor = getComplementary(players[aggressorId].color);
-            const newAggressorColor = brighten(complementaryColor, 0.15);
+            const newAggressorColor = brighten(complementaryColor, 0.25);
             players[aggressorId].color = newAggressorColor;
 
             io.emit('colorsUpdated', [
