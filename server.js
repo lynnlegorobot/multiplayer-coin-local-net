@@ -28,6 +28,10 @@ app.get('/favicon.ico', (req, res) => {
     res.status(204).end(); // No content, but successful response
 });
 
+// Game constants (matching client)
+const WORLD_WIDTH = 1200;
+const WORLD_HEIGHT = 900;
+
 // Game state
 const players = {};
 const gameState = {
@@ -73,7 +77,7 @@ io.on('connection', (socket) => {
         socket.emit('currentPlayers', players);
         
         // Send current game state
-        socket.emit('gameState', { items: Object.values(items) });
+        socket.emit('gameState', { items: Object.values(gameState.items) });
 
         // Notify all players about new player
         socket.broadcast.emit('newPlayer', players[socket.id]);
