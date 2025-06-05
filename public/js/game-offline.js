@@ -15,7 +15,7 @@ class GameScene extends Phaser.Scene {
         console.log('🎯 GameScene constructor called');
     }
 
-    // Local high score management
+    // Local high score and leaderboard management
     getHighScore() {
         const saved = localStorage.getItem('coinCollectorHighScore');
         return saved ? parseInt(saved) : 0;
@@ -26,15 +26,54 @@ class GameScene extends Phaser.Scene {
         console.log('💾 High score saved:', this.score);
     }
 
+    // Local leaderboard management (top 10 scores)
+    getLocalLeaderboard() {
+        const saved = localStorage.getItem('coinCollectorLocalLeaderboard');
+        return saved ? JSON.parse(saved) : [];
+    }
+
+    saveScoreToLocalLeaderboard() {
+        if (this.score <= 0) return;
+
+        const playerName = this.getPlayerName();
+        const leaderboard = this.getLocalLeaderboard();
+        
+        // Add new score
+        leaderboard.push({
+            player_name: playerName,
+            score: this.score,
+            date: new Date().toLocaleDateString(),
+            time: new Date().toLocaleTimeString()
+        });
+        
+        // Sort by score (highest first) and keep only top 10
+        leaderboard.sort((a, b) => b.score - a.score);
+        const topScores = leaderboard.slice(0, 10);
+        
+        localStorage.setItem('coinCollectorLocalLeaderboard', JSON.stringify(topScores));
+        console.log('📊 Score saved to local leaderboard:', this.score);
+        
+        return topScores;
+    }
+
+    getPlayerName() {
+        return localStorage.getItem('playerName') || 'Anonymous Player';
+    }
+
     checkNewHighScore() {
         if (this.score > this.highScore) {
             this.highScore = this.score;
             this.saveHighScore();
             this.showNewHighScoreEffect();
             
-            // Submit to leaderboard system if available
-            this.submitToLeaderboard();
+            // Save to local leaderboard (no global submission for single player)
+            this.saveScoreToLocalLeaderboard();
+            this.updateUI(); // Refresh the UI to show new leaderboard
             return true;
+        } else {
+            // Still save to local leaderboard even if not a high score
+            this.saveScoreToLocalLeaderboard();
+            this.updateUI(); // Refresh the UI to show updated leaderboard
         }
         return false;
     }
@@ -495,41 +534,60 @@ class GameScene extends Phaser.Scene {
                 scoreElement.textContent = this.score;
             }
             
-            // Use leaderboard manager if available, otherwise fallback to basic UI
-            if (window.leaderboardManager) {
-                window.leaderboardManager.updateLeaderboardUI(window.leaderboardManager.lastScores || []);
-            } else {
-                // Fallback for when leaderboard manager isn't available
-                const playerCountElement = document.getElementById('playerCount');
-                if (playerCountElement) {
-                    playerCountElement.innerHTML = `
-                        📱 Single-player<br>
-                        <small style="color: #FFD700;">High: ${this.highScore}</small>
+            // Update player name display
+            const playerNameElement = document.getElementById('playerNameText');
+            if (playerNameElement) {
+                playerNameElement.textContent = this.getPlayerName();
+            }
+            
+            // Show local leaderboard
+            const playerCountElement = document.getElementById('playerCount');
+            if (playerCountElement) {
+                const localScores = this.getLocalLeaderboard();
+                const highScore = this.highScore;
+                
+                let leaderboardHTML = `
+                    <div style="font-size: 12px; text-align: left;">
+                        <div style="margin-bottom: 5px; color: #4CAF50; font-weight: bold;">
+                            📱 Single Player
+                        </div>
+                        <div style="color: #FFD700; margin-bottom: 8px; font-weight: bold;">
+                            🏆 Best: ${highScore}
+                        </div>
+                `;
+                
+                if (localScores.length > 0) {
+                    leaderboardHTML += `
+                        <div style="color: #87CEEB; margin-bottom: 3px; font-size: 10px;">
+                            📊 Recent Top Scores:
+                        </div>
+                    `;
+                    
+                    localScores.slice(0, 3).forEach((score, index) => {
+                        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉';
+                        leaderboardHTML += `
+                            <div style="font-size: 9px; color: ${index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : '#CD7F32'}; margin-bottom: 1px;">
+                                ${medal} ${score.player_name}: ${score.score}
+                            </div>
+                        `;
+                    });
+                } else {
+                    leaderboardHTML += `
+                        <div style="font-size: 9px; color: #666;">
+                            Play to set your first score!
+                        </div>
                     `;
                 }
+                
+                leaderboardHTML += `</div>`;
+                playerCountElement.innerHTML = leaderboardHTML;
             }
         } catch (error) {
             console.error('❌ Error updating UI:', error);
         }
     }
 
-    // Submit score to leaderboard system
-    async submitToLeaderboard() {
-        if (this.score <= 0) return;
-        
-        console.log(`🏆 Submitting score to leaderboard: ${this.score}`);
-        
-        if (window.leaderboardManager) {
-            // Submit to both local and global leaderboards if available
-            await window.leaderboardManager.submitScore(this.score);
-            window.leaderboardManager.saveLocalScore(this.score);
-            window.leaderboardManager.refreshLeaderboard();
-        } else {
-            console.warn('⚠️ Leaderboard manager not available');
-        }
-    }
-
-    // Submit final score when game ends or player quits
+    // Submit score to leaderboard when game ends or player quits
     async submitFinalScore() {
         if (this.score <= 0) return;
         
@@ -537,7 +595,9 @@ class GameScene extends Phaser.Scene {
         
         console.log(`🎮 Single-player session ended - Score: ${this.score}, Duration: ${sessionDuration.toFixed(1)}s`);
         
-        await this.submitToLeaderboard();
+        // Save to local leaderboard only (no global submission for single player)
+        this.saveScoreToLocalLeaderboard();
+        console.log('💾 Final score saved to local leaderboard');
     }
 }
 

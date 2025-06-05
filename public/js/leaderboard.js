@@ -539,19 +539,30 @@ class LeaderboardManager {
         if (window.game && window.game.scene && window.game.scene.scenes[0]) {
             const scene = window.game.scene.scenes[0];
             if (scene.socket && scene.myPlayer) {
-                // Update our own player info
+                // Update our own player info immediately
                 if (scene.playerInfo[scene.socket.id]) {
                     scene.playerInfo[scene.socket.id].name = newName;
                 }
                 
-                // Update our name display above character
+                // Update our name display above character immediately
                 if (scene.playerNames[scene.socket.id]) {
                     scene.playerNames[scene.socket.id].setText(newName);
+                    console.log('✅ Updated player name display above character:', newName);
                 }
                 
-                // Notify server of name change
+                // Notify server of name change for other players
                 scene.socket.emit('nameChange', { newName: newName });
                 console.log('🔄 Notified server of name change:', newName);
+            }
+        }
+        
+        // Also update single-player if running
+        if (window.game && window.game.scene && window.game.scene.scenes[0] && window.gameMode === 'single-player') {
+            const scene = window.game.scene.scenes[0];
+            // Update UI in single-player
+            if (scene.updateUI) {
+                scene.updateUI();
+                console.log('✅ Updated single-player UI with new name:', newName);
             }
         }
     }

@@ -915,9 +915,27 @@
         async function showFullLeaderboard() {
             console.log('🏆 Showing full leaderboard...');
             
-            // Get top scores
-            const scores = await (window.leaderboardManager?.getTopScores(20) || []);
-            const isOnline = window.leaderboardManager?.isOnline || false;
+            let scores = [];
+            let isOnline = false;
+            let statusText = '';
+            let statusColor = '';
+            
+            if (window.gameMode === 'single-player') {
+                // Single player - show local leaderboard only
+                const gameScene = window.game?.scene?.scenes[0];
+                if (gameScene && gameScene.getLocalLeaderboard) {
+                    scores = gameScene.getLocalLeaderboard();
+                }
+                isOnline = false;
+                statusText = '📱 Local Leaderboard';
+                statusColor = '#4CAF50';
+            } else {
+                // Multiplayer - use leaderboard manager
+                scores = await (window.leaderboardManager?.getTopScores(20) || []);
+                isOnline = window.leaderboardManager?.isOnline || false;
+                statusText = isOnline ? '🌐 Global Leaderboard' : '📱 Local Leaderboard';
+                statusColor = isOnline ? '#4CAF50' : '#FF9800';
+            }
             
             const modal = document.createElement('div');
             modal.style.cssText = `
@@ -925,9 +943,6 @@
                 background: rgba(0,0,0,0.9); display: flex; align-items: center;
                 justify-content: center; z-index: 3000; padding: 20px; box-sizing: border-box;
             `;
-            
-            const statusColor = isOnline ? '#4CAF50' : '#FF9800';
-            const statusText = isOnline ? '🌐 Global Leaderboard' : '📱 Local Leaderboard';
             
             modal.innerHTML = `
                 <div style="background: white; padding: 30px; border-radius: 15px; max-width: 500px; width: 100%; max-height: 80vh; overflow-y: auto;">
@@ -937,6 +952,9 @@
                                     background: ${statusColor}22; border-radius: 15px; display: inline-block;">
                             ${statusText}
                         </div>
+                        ${window.gameMode === 'single-player' ? 
+                            '<div style="font-size: 12px; color: #666; margin-top: 5px;">Your personal best scores</div>' : ''
+                        }
                     </div>
                     
                     <div style="text-align: left;">
@@ -946,17 +964,28 @@
                                            padding: 8px 12px; margin: 5px 0; border-radius: 8px; 
                                            background: ${index < 3 ? '#FFD70022' : '#f5f5f5'}; 
                                            border-left: 4px solid ${index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : index === 2 ? '#CD7F32' : '#ddd'};">
-                                    <span style="font-weight: bold; color: #333;">
-                                        #${index + 1} ${score.player_name}
-                                    </span>
+                                    <div>
+                                        <span style="font-weight: bold; color: #333;">
+                                            #${index + 1} ${score.player_name}
+                                        </span>
+                                        ${window.gameMode === 'single-player' && score.date ? 
+                                            `<div style="font-size: 10px; color: #666;">${score.date}</div>` : ''
+                                        }
+                                    </div>
                                     <span style="font-weight: bold; color: #666;">
                                         ${score.score}
                                     </span>
                                 </div>
                             `).join('') 
-                            : '<div style="text-align: center; color: #666; padding: 20px;">No scores yet - be the first!</div>'
+                            : '<div style="text-align: center; color: #666; padding: 20px;">No scores yet - play to set your first score!</div>'
                         }
                     </div>
+                    
+                    ${window.gameMode === 'single-player' && scores.length > 0 ? 
+                        `<div style="text-align: center; margin-top: 15px; padding: 10px; background: #f0f8ff; border-radius: 8px; font-size: 12px; color: #666;">
+                            💡 Your top ${scores.length} score${scores.length > 1 ? 's' : ''} saved locally
+                        </div>` : ''
+                    }
                     
                     <div style="text-align: center; margin-top: 20px;">
                         <button onclick="this.parentElement.parentElement.parentElement.remove()" 
