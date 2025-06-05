@@ -161,19 +161,31 @@ io.on('connection', (socket) => {
             console.log(`✅ Item ${itemId} collected! New score: ${players[socket.id].score}`);
             console.log(`📊 Items remaining: ${gameState.items.length}`);
             
-            // Generate new item
-            const newItem = generateItem();
-            gameState.items.push(newItem);
-            
-            console.log(`🆕 Generated new item: ${newItem.id} at (${newItem.x.toFixed(1)}, ${newItem.y.toFixed(1)})`);
-            
-            // Broadcast item collection and new item to ALL clients (including sender)
-            io.emit('itemCollected', { 
-                itemId, 
-                playerId: socket.id, 
-                newItem: newItem,
-                collectedAt: { x: collectedItem.x, y: collectedItem.y }
-            });
+            // Generate new item only 70% of the time (reduced spawn rate)
+            if (Math.random() < 0.7) {
+                const newItem = generateItem();
+                gameState.items.push(newItem);
+                
+                console.log(`🆕 Generated new item: ${newItem.id} at (${newItem.x.toFixed(1)}, ${newItem.y.toFixed(1)})`);
+                
+                // Broadcast item collection and new item to ALL clients (including sender)
+                io.emit('itemCollected', { 
+                    itemId, 
+                    playerId: socket.id, 
+                    newItem: newItem,
+                    collectedAt: { x: collectedItem.x, y: collectedItem.y }
+                });
+            } else {
+                console.log(`🎲 Coin spawn skipped (30% chance) - total items: ${gameState.items.length}`);
+                
+                // Broadcast item collection without new item
+                io.emit('itemCollected', { 
+                    itemId, 
+                    playerId: socket.id, 
+                    newItem: null,  // No new item spawned
+                    collectedAt: { x: collectedItem.x, y: collectedItem.y }
+                });
+            }
             io.emit('scoreUpdate', { playerId: socket.id, score: players[socket.id].score });
             io.emit('healthUpdate', { 
                 playerId: socket.id, 
@@ -193,10 +205,10 @@ io.on('connection', (socket) => {
         
         if (players[targetPlayerId]) {
             players[targetPlayerId].hitCount += 1;
-            console.log(`💥 Player ${players[targetPlayerId].name} hit! Count: ${players[targetPlayerId].hitCount}/10`);
+            console.log(`💥 Player ${players[targetPlayerId].name} hit! Count: ${players[targetPlayerId].hitCount}/3`);
             
             // Check if player loses a life
-            if (players[targetPlayerId].hitCount >= 10) {
+            if (players[targetPlayerId].hitCount >= 3) {
                 players[targetPlayerId].lives -= 1;
                 players[targetPlayerId].hitCount = 0; // Reset hit counter
                 

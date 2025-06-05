@@ -310,7 +310,7 @@ class GameScene extends Phaser.Scene {
                 this.hitCount = data.hitCount;
                 this.coinsToLife = data.coinsToLife;
                 this.updateHealthUI();
-                console.log(`💖 Health updated - Lives: ${this.lives}, Hits: ${this.hitCount}/10, Coins to life: ${this.coinsToLife}`);
+                console.log(`💖 Health updated - Lives: ${this.lives}, Hits: ${this.hitCount}/3, Coins to life: ${this.coinsToLife}`);
             }
         });
 
