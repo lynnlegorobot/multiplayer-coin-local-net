@@ -212,22 +212,27 @@ io.on('connection', (socket) => {
             // --- COLOR CHANGE LOGIC ---
             const darken = (colorNum, percent) => {
                 let t=percent<0?0:255,p=percent<0?percent*-1:percent,R=colorNum>>16,G=colorNum>>8&0x00FF,B=colorNum&0x0000FF;
-                R = Math.round((t-R)*p)+R;
-                G = Math.round((t-G)*p)+G;
-                B = Math.round((t-B)*p)+B;
-                return (R<<16)+(G<<8)+B;
+                R = Math.round((t-R)*p)+R; G = Math.round((t-G)*p)+G; B = Math.round((t-B)*p)+B;
+                return (R<255?R:255)<<16 | (G<255?G:255)<<8 | (B<255?B:255);
+            };
+            const brighten = (colorNum, percent) => darken(colorNum, -percent);
+            const getComplementary = (colorNum) => {
+                const r = (colorNum >> 16) & 0xFF;
+                const g = (colorNum >> 8) & 0xFF;
+                const b = colorNum & 0xFF;
+                return ((255 - r) << 16) | ((255 - g) << 8) | (255 - b);
             };
 
-            const brighten = (colorNum, percent) => darken(colorNum, -percent);
-
-            const newVictimColor = darken(players[targetPlayerId].color, 0.2); // Darken by 20%
-            const newAggressorColor = brighten(players[aggressorId].color, 0.2); // Brighten by 20%
-
+            // Victim gets darker
+            const newVictimColor = darken(players[targetPlayerId].color, 0.2);
             players[targetPlayerId].color = newVictimColor;
+
+            // Aggressor gets a brighter, complementary color
+            const complementaryColor = getComplementary(players[aggressorId].color);
+            const newAggressorColor = brighten(complementaryColor, 0.15);
             players[aggressorId].color = newAggressorColor;
 
             io.emit('colorsUpdated', [
-                // Convert numbers to hex strings for reliable network transfer
                 { playerId: targetPlayerId, newColor: '#' + newVictimColor.toString(16).padStart(6, '0') },
                 { playerId: aggressorId, newColor: '#' + newAggressorColor.toString(16).padStart(6, '0') }
             ]);
