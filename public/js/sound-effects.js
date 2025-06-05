@@ -36,56 +36,71 @@ class SoundEffectsManager {
         }
     }
 
-    // 🪙 Coin Collection Sound - Bright, sparkly synth
+    // 🪙 Coin Collection Sound - Classic Mario/Sonic style pickup
     playCoinCollect() {
         if (!this.isEnabled) return;
         this.resumeAudio();
 
         const now = this.audioContext.currentTime;
-        const duration = 0.4;
+        const duration = 0.25; // Shorter, snappier sound
 
-        // Main oscillator - bright, high frequency
+        // Main tone - bright, bell-like sound (like Mario coin)
         const osc1 = this.audioContext.createOscillator();
         const gain1 = this.audioContext.createGain();
         
-        osc1.type = 'square';
-        osc1.frequency.setValueAtTime(800, now);
-        osc1.frequency.exponentialRampToValueAtTime(1600, now + 0.1);
-        osc1.frequency.exponentialRampToValueAtTime(400, now + duration);
+        osc1.type = 'triangle'; // More bell-like than square
+        osc1.frequency.setValueAtTime(1046.5, now); // C6 - bright and clear
+        osc1.frequency.exponentialRampToValueAtTime(2093, now + 0.05); // Quick upward sweep
+        osc1.frequency.exponentialRampToValueAtTime(1046.5, now + 0.1); // Back to fundamental
         
-        gain1.gain.setValueAtTime(0.4, now);
+        gain1.gain.setValueAtTime(0.5, now);
         gain1.gain.exponentialRampToValueAtTime(0.01, now + duration);
         
-        // Harmonic oscillator for richness
+        // Harmonic overtone for richness (like Sonic ring)
         const osc2 = this.audioContext.createOscillator();
         const gain2 = this.audioContext.createGain();
         
-        osc2.type = 'triangle';
-        osc2.frequency.setValueAtTime(1200, now);
-        osc2.frequency.exponentialRampToValueAtTime(2400, now + 0.1);
-        osc2.frequency.exponentialRampToValueAtTime(600, now + duration);
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1567.98, now); // G6 - perfect fifth harmony
+        osc2.frequency.exponentialRampToValueAtTime(3135.96, now + 0.05);
+        osc2.frequency.exponentialRampToValueAtTime(1567.98, now + 0.1);
         
         gain2.gain.setValueAtTime(0.2, now);
         gain2.gain.exponentialRampToValueAtTime(0.01, now + duration);
         
-        // Low-pass filter for smoothness
+        // High frequency sparkle (classic pickup sound characteristic)
+        const osc3 = this.audioContext.createOscillator();
+        const gain3 = this.audioContext.createGain();
+        
+        osc3.type = 'sine';
+        osc3.frequency.setValueAtTime(4186, now); // Very high C
+        
+        gain3.gain.setValueAtTime(0.1, now);
+        gain3.gain.exponentialRampToValueAtTime(0.01, now + 0.1); // Quick fade
+        
+        // High-pass filter for crispness (like classic coin sounds)
         const filter = this.audioContext.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(3000, now);
-        filter.frequency.exponentialRampToValueAtTime(1000, now + duration);
+        filter.type = 'highpass';
+        filter.frequency.setValueAtTime(300, now);
+        filter.Q.setValueAtTime(1, now);
         
         // Connect the audio graph
         osc1.connect(gain1);
         osc2.connect(gain2);
+        osc3.connect(gain3);
+        
         gain1.connect(filter);
         gain2.connect(filter);
+        gain3.connect(this.masterGain); // Sparkle bypasses filter
         filter.connect(this.masterGain);
         
-        // Start and stop
+        // Start and stop with precise timing
         osc1.start(now);
         osc2.start(now);
+        osc3.start(now);
         osc1.stop(now + duration);
         osc2.stop(now + duration);
+        osc3.stop(now + 0.1); // Sparkle ends earlier
     }
 
     // ✨ Opponent Collection - Subtle sparkle
