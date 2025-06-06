@@ -138,6 +138,10 @@ class GameScene extends Phaser.Scene {
         // Receive current players when joining
         this.socket.on('currentPlayers', (players) => {
             console.log('👥 Received current players:', Object.keys(players).length);
+            
+            // IMPORTANT: Clean up any existing player data first to prevent ghosts
+            this.performGlobalCleanup();
+            
             Object.keys(players).forEach((id) => {
                 if (id === this.socket.id) {
                     this.createPlayer(players[id], true);
@@ -339,6 +343,12 @@ class GameScene extends Phaser.Scene {
                 console.log(`💥 Player ${playerId} lost a life and is respawning.`);
                 this.handlePlayerRespawn(player, newX, newY);
                 if (window.soundManager) window.soundManager.playLifeLost();
+                
+                // If it's me respawning, ensure camera is still following properly
+                if (playerId === this.socket.id && this.myPlayer === player) {
+                    console.log('🎯 I am respawning - ensuring camera follows');
+                    this.cameras.main.startFollow(this.myPlayer, true, 0.05, 0.05);
+                }
             }
         });
 
@@ -357,8 +367,11 @@ class GameScene extends Phaser.Scene {
                 // ENHANCED CLEANUP - Remove all traces of this player
                 this.cleanupPlayer(data.playerId);
 
-                // If it's me, show the elimination screen
+                // If it's me, handle my own elimination specially
                 if (data.playerId === this.socket.id) {
+                    // Clear my own player reference to prevent ghost
+                    this.myPlayer = null;
+                    console.log('💀 I was eliminated - cleared my player reference');
                     this.showEliminationScreen(data.finalScore);
                 }
             }
@@ -1125,6 +1138,17 @@ class GameScene extends Phaser.Scene {
     cleanupPlayer(playerId) {
         console.log('🧹 Starting comprehensive cleanup for player:', playerId);
         
+        // Special handling for my own player
+        if (playerId === this.socket.id) {
+            console.log('💀 Cleaning up my own player due to elimination');
+            
+            // If this is my active player, clear the reference
+            if (this.myPlayer === this.players[playerId]) {
+                this.myPlayer = null;
+                console.log('🗑️ Cleared myPlayer reference');
+            }
+        }
+        
         // Remove collision detectors for this player
         if (this.playerColliders[playerId]) {
             this.physics.world.removeCollider(this.playerColliders[playerId]);
@@ -1203,10 +1227,13 @@ class GameScene extends Phaser.Scene {
     performGlobalCleanup() {
         console.log('🧹 Performing global cleanup...');
         
-        // Clean up all players
+        // Clean up all players except my current active player
         Object.keys(this.players).forEach(playerId => {
-            if (playerId !== this.socket.id) { // Don't clean up own player
+            if (playerId !== this.socket.id || this.myPlayer === null) {
+                // Clean up other players, or my own dead player if I have no active player
                 this.cleanupPlayer(playerId);
+            } else {
+                console.log('🛡️ Preserving my active player:', playerId);
             }
         });
         
