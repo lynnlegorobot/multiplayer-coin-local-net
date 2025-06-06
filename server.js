@@ -11,6 +11,7 @@ const io = socketIo(server);
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Game state
+const RESPAWN_TIME = 3000; // 3 seconds
 const players = {};
 const gameState = {
     items: [],
@@ -41,7 +42,8 @@ io.on('connection', (socket) => {
         x: Math.random() * 800,
         y: Math.random() * 600,
         color: Math.floor(Math.random() * 0xFFFFFF),
-        score: 0
+        score: 0,
+        isAlive: true
     };
 
     // Send current game state to new player
@@ -64,15 +66,35 @@ io.on('connection', (socket) => {
     socket.on('collectItem', (itemId) => {
         const itemIndex = gameState.items.findIndex(item => item.id === itemId);
         if (itemIndex !== -1) {
-            gameState.items.splice(itemIndex, 1);
             players[socket.id].score += 10;
-            
-            // Generate new item
+            gameState.items.splice(itemIndex, 1);
             gameState.items.push(generateItem());
             
-            // Broadcast item collection and new item
             io.emit('itemCollected', { itemId, playerId: socket.id, newItem: gameState.items[gameState.items.length - 1] });
             io.emit('scoreUpdate', { playerId: socket.id, score: players[socket.id].score });
+        }
+    });
+    // Handle player hits
+    socket.on('playerHit', (targetId) => {
+        const target = players[targetId];
+        if (target && target.isAlive) {
+            target.isAlive = false;
+            io.emit('playerKilled', targetId);
+            players[socket.id].score += 50;
+            io.emit('scoreUpdate', { playerId: socket.id, score: players[socket.id].score });
+
+            setTimeout(() => {
+                if (players[targetId]) {
+                    players[targetId].isAlive = true;
+                    players[targetId].x = Math.random() * 800;
+                    players[targetId].y = Math.random() * 600;
+                    io.emit('playerRespawned', {
+                        id: targetId,
+                        x: players[targetId].x,
+                        y: players[targetId].y
+                    });
+                }
+            }, RESPAWN_TIME);
         }
     });
 
@@ -89,3 +111,26 @@ server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Open http://localhost:${PORT} in your mobile browser`);
 }); 
+                }
+            }, RESPAWN_TIME);
+        }
+    });
+
+
+
+
+
+
+    // Handle disconnection
+    socket.on('disconnect', () => {
+        console.log('Player disconnected:', socket.id);
+        delete players[socket.id];
+        socket.broadcast.emit('playerDisconnected', socket.id);
+    });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Open http://localhost:${PORT} in your mobile browser`);
+});

@@ -34,40 +34,39 @@ class GameScene extends Phaser.Scene {
         // Update score display
         this.updateUI();
     }
+        this.setupMobileControls();
+        this.updateUI();
+        this.input.keyboard.on('keydown-SPACE', () => {
+            if (this.myPlayer && this.myPlayer.alpha === 1) {
+                Object.entries(this.players).forEach(([id, player]) => {
+                    if (id !== this.socket.id && player.alpha === 1) {
 
-    setupSocketEvents() {
-        // Receive current players when joining
-        this.socket.on('currentPlayers', (players) => {
-            Object.keys(players).forEach((id) => {
-                if (id === this.socket.id) {
-                    this.createPlayer(players[id], true);
-                } else {
                     this.createPlayer(players[id], false);
                 }
             });
         });
 
         // Receive game state
-        this.socket.on('gameState', (gameState) => {
+        // Receive game state
             gameState.items.forEach((item) => {
                 this.createItem(item);
             });
         });
 
         // Handle new player joining
-        this.socket.on('newPlayer', (playerInfo) => {
+        // Handle new player joining
             this.createPlayer(playerInfo, false);
         });
 
         // Handle player movement
-        this.socket.on('playerMoved', (playerInfo) => {
+        // Handle player movement
             if (this.players[playerInfo.id]) {
                 this.players[playerInfo.id].setPosition(playerInfo.x, playerInfo.y);
             }
         });
 
         // Handle player disconnection
-        this.socket.on('playerDisconnected', (playerId) => {
+        // Handle player disconnection
             if (this.players[playerId]) {
                 this.players[playerId].destroy();
                 delete this.players[playerId];
@@ -76,7 +75,7 @@ class GameScene extends Phaser.Scene {
         });
 
         // Handle item collection
-        this.socket.on('itemCollected', (data) => {
+        // Handle item collection
             if (this.items[data.itemId]) {
                 this.items[data.itemId].destroy();
                 delete this.items[data.itemId];
@@ -85,28 +84,28 @@ class GameScene extends Phaser.Scene {
         });
 
         // Handle score updates
-        this.socket.on('scoreUpdate', (data) => {
+        // Handle score updates
             if (data.playerId === this.socket.id) {
                 document.getElementById('score').textContent = data.score;
             }
         });
     }
+    }
 
-    setupInput() {
         this.cursors = this.input.keyboard.createCursorKeys();
         
+        
         // WASD controls
-        this.wasd = this.input.keyboard.addKeys('W,S,A,D');
     }
 
     setupMobileControls() {
         const joystick = document.getElementById('joystick');
         const joystickKnob = document.getElementById('joystick-knob');
         
-        let isDragging = false;
+        
         const joystickCenter = { x: 60, y: 60 }; // Center of 120px joystick
-        const joystickRadius = 40;
-
+        const joystickCenter = { x: 60, y: 60 }; // Center of 120px joystick
+        const joystickCenter = { x: 60, y: 60 };
         const handleStart = (e) => {
             e.preventDefault();
             isDragging = true;
@@ -116,14 +115,14 @@ class GameScene extends Phaser.Scene {
             if (!isDragging) return;
             e.preventDefault();
 
-            const rect = joystick.getBoundingClientRect();
+
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             
-            const x = clientX - rect.left - joystickCenter.x;
+            
             const y = clientY - rect.top - joystickCenter.y;
             
-            const distance = Math.sqrt(x * x + y * y);
+            
             
             if (distance <= joystickRadius) {
                 joystickKnob.style.transform = `translate(${x - 20}px, ${y - 20}px)`;
@@ -149,7 +148,7 @@ class GameScene extends Phaser.Scene {
         };
 
         // Touch events
-        joystick.addEventListener('touchstart', handleStart);
+        // Touch events
         document.addEventListener('touchmove', handleMove);
         document.addEventListener('touchend', handleEnd);
 

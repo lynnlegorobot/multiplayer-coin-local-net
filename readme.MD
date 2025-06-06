@@ -1,5 +1,5 @@
 # Multiplayer Mobile Phaser.io Game
-#
+
 A real-time multiplayer web-based game built with Phaser.js that runs perfectly on mobile devices. Players can join from any web browser and compete to collect coins in a shared world.
 
 ## Features
@@ -18,6 +18,7 @@ A real-time multiplayer web-based game built with Phaser.js that runs perfectly 
 - Collect gold coins to increase your score
 - Each player has a unique color
 - Live player count and score display
+- **New Attack Feature**: Added a hit button for interactions
 
 ## Quick Start
 
@@ -50,6 +51,7 @@ npm run dev
 ### Mobile Devices
 - **Movement**: Use the virtual joystick in the bottom-right corner
 - **Collection**: Walk into gold coins to collect them automatically
+- **Attack**: Tap the Hit button to perform an action
 
 ### Desktop (for testing)
 - **Movement**: Arrow keys or WASD
