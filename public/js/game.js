@@ -24,7 +24,7 @@ class GameScene extends Phaser.Scene {
         this.playerNames = {};
         
         // Health system
-        this.lives = 3;
+        this.lives = 1; // TESTING: Start with 1 life for easier elimination testing
         this.hitCount = 0;
         this.coinsToLife = 100;
         this.isKnockedBack = false;

@@ -182,7 +182,7 @@ io.on('connection', (socket) => {
             color: vibrantColor,
             name: playerData?.playerName || 'Anonymous',
             score: 0,
-            lives: 3,           // Start with 3 lives
+            lives: 1,           // TESTING: Start with 1 life for easier elimination testing
             hitCount: 0,        // Track hits towards losing a life
             coinsToLife: 100,    // Coins needed for extra life
             lastActivity: Date.now()
@@ -324,23 +324,28 @@ io.on('connection', (socket) => {
                 players[targetPlayerId].hitCount = 0; // Reset hit counter
                 
                 console.log(`💔 Player ${players[targetPlayerId].name} lost a life! Now has ${players[targetPlayerId].lives} lives`);
+                console.log(`🔍 Checking elimination: lives=${players[targetPlayerId].lives}, lives <= 0? ${players[targetPlayerId].lives <= 0}`);
                 
                 // Check if player is eliminated
                 if (players[targetPlayerId].lives <= 0) {
-                    console.log(`☠️ Player ${players[targetPlayerId].name} eliminated with score ${players[targetPlayerId].score}!`);
+                    console.log(`☠️ TRIGGERING ELIMINATION for Player ${players[targetPlayerId].name} with score ${players[targetPlayerId].score}!`);
                     
                     // Notify ALL players of elimination to trigger explosion effect
+                    console.log(`📤 Sending 'eliminated' event to all clients for player: ${targetPlayerId}`);
                     io.emit('eliminated', {
                         finalScore: players[targetPlayerId].score,
                         playerId: targetPlayerId
                     });
                     
-                    // Remove player from game
+                    console.log(`🗑️ Removing player ${targetPlayerId} from server players object`);
                     delete players[targetPlayerId];
+                    
+                    console.log(`📤 Sending 'playerDisconnected' event for player: ${targetPlayerId}`);
                     io.emit('playerDisconnected', targetPlayerId);
 
                 } else {
                     // Player lost a life, but is not eliminated. Time to respawn.
+                    console.log(`💫 Player ${players[targetPlayerId].name} respawning with ${players[targetPlayerId].lives} lives remaining`);
                     const spawnX = 100 + Math.random() * (WORLD_WIDTH - 200);
                     const spawnY = 100 + Math.random() * (WORLD_HEIGHT - 200);
 
