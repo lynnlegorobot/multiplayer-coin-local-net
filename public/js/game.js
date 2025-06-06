@@ -358,21 +358,27 @@ class GameScene extends Phaser.Scene {
             if (player) {
                 console.log(`☠️ Player ${data.playerId} has been eliminated!`);
                 
-                // Trigger final explosion
-                this.createExplosionEffect(player.x, player.y, player.tintTopLeft);
+                // Create FINAL ELIMINATION animation (shrink + spin) instead of explosion
+                this.createFinalEliminationEffect(player, data.playerId === this.socket.id);
                 
-                // Play sound and clean up
+                // Play sound
                 if (window.soundManager) window.soundManager.playEliminated();
                 
-                // ENHANCED CLEANUP - Remove all traces of this player
-                this.cleanupPlayer(data.playerId);
-
                 // If it's me, handle my own elimination specially
                 if (data.playerId === this.socket.id) {
                     // Clear my own player reference to prevent ghost
                     this.myPlayer = null;
                     console.log('💀 I was eliminated - cleared my player reference');
-                    this.showEliminationScreen(data.finalScore);
+                    
+                    // Show elimination screen after the animation completes
+                    this.time.delayedCall(2000, () => {
+                        this.showEliminationScreen(data.finalScore);
+                    });
+                } else {
+                    // For other players, clean up after animation
+                    this.time.delayedCall(2000, () => {
+                        this.cleanupPlayer(data.playerId);
+                    });
                 }
             }
         });
@@ -784,6 +790,124 @@ class GameScene extends Phaser.Scene {
         }
     }
 
+    // NEW: Final elimination effect (shrink + spin to nothing)
+    createFinalEliminationEffect(player, isMyPlayer) {
+        if (!player) return;
+        
+        console.log('💀 Creating final elimination effect for:', isMyPlayer ? 'me' : 'other player');
+        
+        // Store original position and color
+        const originalX = player.x;
+        const originalY = player.y;
+        const playerColor = player.tintTopLeft;
+        
+        // Hide player name immediately
+        const playerId = Object.keys(this.players).find(id => this.players[id] === player);
+        if (this.playerNames[playerId]) {
+            this.playerNames[playerId].setVisible(false);
+        }
+        
+        // Create dramatic camera shake if it's my elimination
+        if (isMyPlayer) {
+            this.cameras.main.shake(500, 0.02);
+        }
+        
+        // PHASE 1: Dramatic spin and shrink
+        const eliminationTween = this.tweens.add({
+            targets: player,
+            scaleX: 0,
+            scaleY: 0,
+            rotation: Math.PI * 4, // 2 full rotations
+            alpha: 0.8,
+            duration: 1500,
+            ease: 'Power2',
+            onComplete: () => {
+                // PHASE 2: Create final implosion effect
+                this.createImplosionEffect(originalX, originalY, playerColor);
+            }
+        });
+        
+        // TRACK TWEEN FOR CLEANUP
+        this.activeTweens.push(eliminationTween);
+        
+        // Add some particles during the shrinking
+        this.createShrinkingParticles(originalX, originalY, playerColor);
+    }
+    
+    // Create implosion effect after shrinking
+    createImplosionEffect(x, y, color) {
+        // Create inward particle burst
+        for (let i = 0; i < 8; i++) {
+            const particle = this.add.graphics();
+            particle.fillStyle(color);
+            particle.fillCircle(0, 0, 4);
+            
+            // Start particles at outer ring and implode inward
+            const angle = (i / 8) * Math.PI * 2;
+            const startRadius = 50;
+            particle.x = x + Math.cos(angle) * startRadius;
+            particle.y = y + Math.sin(angle) * startRadius;
+
+            const implosionTween = this.tweens.add({
+                targets: particle,
+                x: x,
+                y: y,
+                alpha: 0,
+                scaleX: 0.1,
+                scaleY: 0.1,
+                duration: 500,
+                ease: 'Power2',
+                onComplete: () => particle.destroy()
+            });
+            
+            // TRACK TWEEN FOR CLEANUP
+            this.activeTweens.push(implosionTween);
+        }
+        
+        // Create final flash effect
+        const flash = this.add.graphics();
+        flash.fillStyle(0xFFFFFF);
+        flash.fillCircle(x, y, 30);
+        flash.setAlpha(0.8);
+        
+        const flashTween = this.tweens.add({
+            targets: flash,
+            alpha: 0,
+            scaleX: 2,
+            scaleY: 2,
+            duration: 300,
+            ease: 'Power2',
+            onComplete: () => flash.destroy()
+        });
+        
+        // TRACK TWEEN FOR CLEANUP
+        this.activeTweens.push(flashTween);
+    }
+    
+    // Create particles that follow the shrinking player
+    createShrinkingParticles(x, y, color) {
+        for (let i = 0; i < 6; i++) {
+            const particle = this.add.graphics();
+            particle.fillStyle(color);
+            particle.fillCircle(0, 0, 2);
+            particle.x = x + Phaser.Math.Between(-20, 20);
+            particle.y = y + Phaser.Math.Between(-20, 20);
+
+            const shrinkTween = this.tweens.add({
+                targets: particle,
+                x: x,
+                y: y,
+                alpha: 0,
+                duration: 1500,
+                ease: 'Power1',
+                onComplete: () => particle.destroy()
+            });
+            
+            // TRACK TWEEN FOR CLEANUP
+            this.activeTweens.push(shrinkTween);
+        }
+    }
+
     update() {
         if (!this.myPlayer) return;
 
@@ -991,41 +1115,91 @@ class GameScene extends Phaser.Scene {
         // Submit final score
         this.submitFinalScore();
         
-        // Create elimination overlay
-        const modal = document.createElement('div');
-        modal.style.cssText = `
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95); display: flex; align-items: center;
-            justify-content: center; z-index: 5000; padding: 20px; box-sizing: border-box;
-        `;
-        
-        modal.innerHTML = `
-            <div style="background: #2a2a2a; padding: 40px; border-radius: 20px; text-align: center; max-width: 500px; width: 100%; border: 3px solid #ff4444;">
-                <h1 style="color: #ff4444; margin-bottom: 20px; font-size: 36px;">☠️ ELIMINATED! ☠️</h1>
-                <div style="color: white; font-size: 24px; margin-bottom: 15px;">
-                    <strong>Final Score: ${finalScore}</strong>
+        // Wait a moment to ensure score is submitted, then show leaderboard
+        setTimeout(async () => {
+            // Get updated leaderboard data
+            let scores = [];
+            let isOnline = false;
+            
+            if (window.leaderboardManager) {
+                scores = await window.leaderboardManager.getTopScores(10);
+                isOnline = window.leaderboardManager.isOnline;
+            }
+            
+            // Create elimination overlay with integrated leaderboard
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.95); display: flex; align-items: center;
+                justify-content: center; z-index: 5000; padding: 20px; box-sizing: border-box;
+            `;
+            
+            // Generate leaderboard HTML
+            let leaderboardHTML = '';
+            if (scores.length > 0) {
+                leaderboardHTML = `
+                    <div style="background: #1a1a1a; padding: 20px; border-radius: 15px; margin: 20px 0; max-height: 300px; overflow-y: auto;">
+                        <h3 style="color: #FFD700; margin-bottom: 15px; text-align: center;">
+                            🏆 ${isOnline ? 'Global' : 'Local'} Leaderboard
+                        </h3>
+                        <div style="font-size: 14px;">
+                            ${scores.map((score, index) => {
+                                const isMyScore = score.player_name === (window.leaderboardManager?.playerName || 'Anonymous');
+                                const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                                const highlight = isMyScore ? 'background: rgba(255, 215, 0, 0.2); border: 1px solid #FFD700;' : '';
+                                
+                                return `
+                                    <div style="display: flex; justify-content: space-between; padding: 8px 12px; margin: 5px 0; 
+                                                border-radius: 8px; ${highlight}
+                                                color: ${index < 3 ? '#FFD700' : '#ccc'};">
+                                        <span>${medal} ${score.player_name}</span>
+                                        <span style="font-weight: bold;">${score.score}</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            } else {
+                leaderboardHTML = `
+                    <div style="background: #1a1a1a; padding: 20px; border-radius: 15px; margin: 20px 0;">
+                        <p style="color: #888; text-align: center;">No scores yet - be the first!</p>
+                    </div>
+                `;
+            }
+            
+            modal.innerHTML = `
+                <div style="background: #2a2a2a; padding: 40px; border-radius: 20px; text-align: center; max-width: 600px; width: 100%; 
+                            border: 3px solid #ff4444; max-height: 90vh; overflow-y: auto;">
+                    <h1 style="color: #ff4444; margin-bottom: 20px; font-size: 36px;">☠️ ELIMINATED! ☠️</h1>
+                    <div style="color: white; font-size: 24px; margin-bottom: 15px;">
+                        <strong>Final Score: ${finalScore}</strong>
+                    </div>
+                    <div style="color: #ccc; font-size: 16px; margin-bottom: 20px;">
+                        All lives exhausted! Here's how you ranked:
+                    </div>
+                    
+                    ${leaderboardHTML}
+                    
+                    <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; margin-top: 20px;">
+                        <button onclick="location.reload()" 
+                                ontouchend="event.preventDefault(); location.reload();"
+                                style="padding: 15px 30px; background: #4CAF50; color: white; border: none; 
+                                       border-radius: 10px; cursor: pointer; font-size: 18px; font-weight: bold; min-height: 50px;">
+                            🔄 Play Again
+                        </button>
+                        <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                                ontouchend="event.preventDefault(); this.parentElement.parentElement.parentElement.remove();"
+                                style="padding: 15px 30px; background: #666; color: white; border: none; 
+                                       border-radius: 10px; cursor: pointer; font-size: 18px; font-weight: bold; min-height: 50px;">
+                            ❌ Close
+                        </button>
+                    </div>
                 </div>
-                <div style="color: #ccc; font-size: 16px; margin-bottom: 30px;">
-                    You ran out of lives! Better luck next time!
-                </div>
-                <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-                    <button onclick="location.reload()" 
-                            ontouchend="event.preventDefault(); location.reload();"
-                            style="padding: 15px 30px; background: #4CAF50; color: white; border: none; 
-                                   border-radius: 10px; cursor: pointer; font-size: 18px; font-weight: bold; min-height: 50px;">
-                        🔄 Play Again
-                    </button>
-                    <button onclick="showFullLeaderboard(); this.parentElement.parentElement.parentElement.remove();" 
-                            ontouchend="event.preventDefault(); showFullLeaderboard(); this.parentElement.parentElement.parentElement.remove();"
-                            style="padding: 15px 30px; background: #2196F3; color: white; border: none; 
-                                   border-radius: 10px; cursor: pointer; font-size: 18px; font-weight: bold; min-height: 50px;">
-                        🏆 Leaderboard
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
+            `;
+            
+            document.body.appendChild(modal);
+        }, 1000); // Give score submission time to complete
     }
 
     createExplosionEffect(x, y, color) {
