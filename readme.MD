@@ -1,5 +1,5 @@
 # Multiplayer Mobile Phaser.io Game
-
+#
 A real-time multiplayer web-based game built with Phaser.js that runs perfectly on mobile devices. Players can join from any web browser and compete to collect coins in a shared world.
 
 ## Features
