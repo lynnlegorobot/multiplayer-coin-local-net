@@ -43,7 +43,8 @@ io.on('connection', (socket) => {
         y: Math.random() * 600,
         color: Math.floor(Math.random() * 0xFFFFFF),
         score: 0,
-        isAlive: true
+        isAlive: true,
+        lastActivity: Date.now()
     };
 
     // Send current game state to new player
@@ -58,15 +59,19 @@ io.on('connection', (socket) => {
         if (players[socket.id]) {
             players[socket.id].x = movementData.x;
             players[socket.id].y = movementData.y;
+            players[socket.id].lastActivity = Date.now();
             socket.broadcast.emit('playerMoved', players[socket.id]);
         }
     });
 
     // Handle item collection
     socket.on('collectItem', (itemId) => {
+        if (!players[socket.id]) return;
+        
         const itemIndex = gameState.items.findIndex(item => item.id === itemId);
         if (itemIndex !== -1) {
             players[socket.id].score += 10;
+            players[socket.id].lastActivity = Date.now();
             gameState.items.splice(itemIndex, 1);
             gameState.items.push(generateItem());
             
@@ -74,13 +79,19 @@ io.on('connection', (socket) => {
             io.emit('scoreUpdate', { playerId: socket.id, score: players[socket.id].score });
         }
     });
+
     // Handle player hits
     socket.on('playerHit', (targetId) => {
+        // First check if the attacking player still exists
+        if (!players[socket.id]) return;
+        
         const target = players[targetId];
         if (target && target.isAlive) {
             target.isAlive = false;
+            target.lastActivity = Date.now();
             io.emit('playerKilled', targetId);
             players[socket.id].score += 50;
+            players[socket.id].lastActivity = Date.now();
             io.emit('scoreUpdate', { playerId: socket.id, score: players[socket.id].score });
 
             setTimeout(() => {
@@ -88,6 +99,7 @@ io.on('connection', (socket) => {
                     players[targetId].isAlive = true;
                     players[targetId].x = Math.random() * 800;
                     players[targetId].y = Math.random() * 600;
+                    players[targetId].lastActivity = Date.now();
                     io.emit('playerRespawned', {
                         id: targetId,
                         x: players[targetId].x,
@@ -97,29 +109,6 @@ io.on('connection', (socket) => {
             }, RESPAWN_TIME);
         }
     });
-
-    // Handle disconnection
-    socket.on('disconnect', () => {
-        console.log('Player disconnected:', socket.id);
-        delete players[socket.id];
-        socket.broadcast.emit('playerDisconnected', socket.id);
-    });
-});
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Open http://localhost:${PORT} in your mobile browser`);
-}); 
-                }
-            }, RESPAWN_TIME);
-        }
-    });
-
-
-
-
-
 
     // Handle disconnection
     socket.on('disconnect', () => {
