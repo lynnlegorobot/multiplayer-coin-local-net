@@ -24,7 +24,7 @@ class GameScene extends Phaser.Scene {
         this.playerNames = {};
         
         // Health system
-        this.lives = 1; // TESTING: Start with 1 life for easier elimination testing
+        this.lives = 3;
         this.hitCount = 0;
         this.coinsToLife = 100;
         this.isKnockedBack = false;
@@ -354,51 +354,25 @@ class GameScene extends Phaser.Scene {
 
         // Handle elimination
         this.socket.on('eliminated', (data) => {
-            console.log(`☠️ ELIMINATION EVENT RECEIVED:`, data);
             const player = this.players[data.playerId];
-            
             if (player) {
-                console.log(`✅ Player found for elimination: ${data.playerId}, isMe: ${data.playerId === this.socket.id}`);
-                console.log(`🔍 Player object:`, {x: player.x, y: player.y, visible: player.visible, active: player.active});
+                console.log(`☠️ Player ${data.playerId} has been eliminated!`);
                 
-                // Create FINAL ELIMINATION animation (shrink + spin) instead of explosion
-                try {
-                    this.createFinalEliminationEffect(player, data.playerId === this.socket.id);
-                    console.log('✅ Final elimination effect triggered successfully');
-                } catch (error) {
-                    console.error('❌ Error creating final elimination effect:', error);
-                    // Fallback to old explosion effect
-                    this.createExplosionEffect(player.x, player.y, player.tintTopLeft);
-                }
+                // Unified handling for all players. The effect now manages its own cleanup.
+                this.createFinalEliminationEffect(player, () => {
+                    // This callback runs after the animation and cleanup are complete.
+                    if (data.playerId === this.socket.id) {
+                        // If it was me, show the elimination screen.
+                        this.showEliminationScreen(data.finalScore);
+                    }
+                });
                 
                 // Play sound
                 if (window.soundManager) {
                     window.soundManager.playEliminated();
-                    console.log('🔊 Elimination sound played');
-                }
-                
-                // If it's me, handle my own elimination specially
-                if (data.playerId === this.socket.id) {
-                    // Clear my own player reference to prevent ghost
-                    this.myPlayer = null;
-                    console.log('💀 I was eliminated - cleared my player reference');
-                    
-                    // Show elimination screen after the animation completes
-                    console.log('⏰ Setting timer for elimination screen in 2000ms...');
-                    this.time.delayedCall(2000, () => {
-                        console.log('📊 Showing elimination screen now');
-                        this.showEliminationScreen(data.finalScore);
-                    });
-                } else {
-                    // For other players, clean up after animation
-                    console.log('🧹 Setting timer for player cleanup in 2000ms...');
-                    this.time.delayedCall(2000, () => {
-                        this.cleanupPlayer(data.playerId);
-                    });
                 }
             } else {
                 console.error(`❌ Player ${data.playerId} not found for elimination!`);
-                console.log('🔍 Available players:', Object.keys(this.players));
             }
         });
 
@@ -810,64 +784,56 @@ class GameScene extends Phaser.Scene {
     }
 
     // NEW: Final elimination effect (shrink + spin to nothing)
-    createFinalEliminationEffect(player, isMyPlayer) {
+    createFinalEliminationEffect(player, onCompleteCallback) {
         if (!player) {
             console.error('❌ createFinalEliminationEffect: No player provided!');
+            if(onCompleteCallback) onCompleteCallback();
             return;
         }
-        
-        console.log('💀 Creating final elimination effect for:', isMyPlayer ? 'me' : 'other player');
-        console.log('🔍 Player object:', player.x, player.y, 'tint:', player.tintTopLeft);
         
         // Store original position and color
         const originalX = player.x;
         const originalY = player.y;
-        const playerColor = player.tintTopLeft || 0xffffff; // fallback color
+        const playerColor = player.tintTopLeft || 0xffffff;
         
         // Hide player name immediately
         const playerId = Object.keys(this.players).find(id => this.players[id] === player);
         if (this.playerNames[playerId]) {
             this.playerNames[playerId].setVisible(false);
-            console.log('👻 Hid player name for:', playerId);
         }
         
         // Create dramatic camera shake if it's my elimination
-        if (isMyPlayer) {
+        if (playerId === this.socket.id) {
             this.cameras.main.shake(500, 0.02);
-            console.log('📳 Camera shake applied for my elimination');
         }
-        
-        console.log('🌀 Starting shrink/spin animation...');
         
         // PHASE 1: Dramatic spin and shrink
         const eliminationTween = this.tweens.add({
             targets: player,
             scaleX: 0,
             scaleY: 0,
-            rotation: Math.PI * 4, // 2 full rotations
+            rotation: Math.PI * 4,
             alpha: 0.8,
             duration: 1500,
             ease: 'Power2',
-            onStart: () => {
-                console.log('🎬 Elimination animation started');
-            },
-            onUpdate: () => {
-                // Optional: Log progress every so often
-            },
             onComplete: () => {
-                console.log('✅ Elimination animation completed, creating implosion');
                 // PHASE 2: Create final implosion effect
                 this.createImplosionEffect(originalX, originalY, playerColor);
+                
+                // PHASE 3: Clean up the player object after a short delay, then call the callback.
+                this.time.delayedCall(500, () => {
+                    if (playerId) {
+                        this.cleanupPlayer(playerId);
+                    }
+                    if (onCompleteCallback) {
+                        onCompleteCallback();
+                    }
+                });
             }
         });
         
-        // TRACK TWEEN FOR CLEANUP
         this.activeTweens.push(eliminationTween);
-        
-        // Add some particles during the shrinking
         this.createShrinkingParticles(originalX, originalY, playerColor);
-        
-        console.log('🎯 Final elimination effect setup complete');
     }
     
     // Create implosion effect after shrinking
