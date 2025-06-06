@@ -398,21 +398,20 @@
         function showQR() {
             console.log('📱 Show QR button clicked');
             
+            // ALWAYS use the current URL - this ensures accuracy
             const currentUrl = window.location.href;
             let gameUrl = currentUrl;
             let gameMode = window.gameMode || 'single-player'; // Use detected mode
             
-            // Set appropriate URLs based on detected environment
+            // Determine mode based on actual environment detection
             if (currentUrl.includes('railway.app')) {
-                gameUrl = 'https://muliplayer-phone-production.up.railway.app/';
                 gameMode = 'Multiplayer (Railway)';
             } else if (currentUrl.includes('vercel.app')) {
-                gameUrl = 'https://muliplayer-phone.vercel.app/';
                 gameMode = 'Single-player (Vercel)';
-            } else {
-                // Local development - use current URL
-                gameUrl = currentUrl;
+            } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                 gameMode = window.gameMode === 'multiplayer' ? 'Multiplayer (Local)' : 'Single-player (Local)';
+            } else {
+                gameMode = 'Game';
             }
             
             console.log(`🌐 Game mode: ${gameMode}`);
